@@ -5,8 +5,8 @@ class BarrierThread extends Thread {
     private CyclicBarrier B1, B2;
 
     public BarrierThread(CyclicBarrier b1, CyclicBarrier b2) {
-        B1 = b1;
-        B2 = b2;
+        this.B1 = b1;
+        this.B2 = b2;
     }
 
     public void run() {
@@ -32,5 +32,5 @@ public class DeadlockCyclicBarrier {
 
         t1.start();
         t2.start();
-    }s on B1, 
+    }
 }
