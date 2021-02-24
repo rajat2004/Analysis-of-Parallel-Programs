@@ -1,38 +1,22 @@
-class SharedObject {
-    private int v = 0;
-
-    void set(int val) {
-        v = val;
-    }
-
-    int get() {
-        return v;
-    }
-}
-
-class TestThread extends Thread {
-    private SharedObject o;
-    private int v;
-
-    TestThread(SharedObject o, int v) {
-        this.o = o;
-        this.v = v;
-    }
-
-    public void run() {
-        System.out.println(this.getName() + ": Current val: " + o.get());
-        o.set(v);
-        System.out.println("New val: " + o.get());
-    }
-}
+import java.util.HashMap;
 
 public class HeapShare {
     public static void main(String[] args) {
-        SharedObject o = new SharedObject();
-        System.out.println("Current val: " + o.get());
+        HashMap<String, String> map = new HashMap<>();
+        String K="SomeKey", V="SomeVal";
 
-        TestThread t1 = new TestThread(o, 10);
-        TestThread t2 = new TestThread(o, 20);
+        Thread t1 = new Thread(() -> {
+            System.out.println(Thread.currentThread().getName());
+            System.out.println("Key " + K + ", Val " + map.get(K));
+            System.out.println("Adding " + K + "," + V + " pair to map");
+            map.put(K, V);
+        });
+
+        Thread t2 = new Thread(() -> {
+            System.out.println(Thread.currentThread().getName());
+            System.out.println("Key " + K + ", Val " + map.get(K));
+            System.out.println("Erasing pair: " + K + " " + map.remove(K));
+        });
 
         try {
             t1.start();

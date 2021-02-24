@@ -13,9 +13,9 @@ class BarrierThread extends Thread {
         System.out.println("Starting " + this.getName());
         try {
             B1.await();
-            System.out.println("Thread " + this.getName() + ": Barrier 1 completed");
+            System.out.println(this.getName() + ": Barrier 1 completed");
             B2.await();
-            System.out.println("Finishing thread " + this.getName());
+            System.out.println("Finishing " + this.getName());
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();
         }
@@ -32,5 +32,12 @@ public class DeadlockCyclicBarrier {
 
         t1.start();
         t2.start();
+
+        try {
+            t1.join();
+            t2.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

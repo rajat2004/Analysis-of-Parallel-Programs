@@ -1,6 +1,8 @@
 class A {
     synchronized void methodA(B b) {
         System.out.println("Inside methodA!");
+        // To increase deadlock chance by allowing other thread to catch up
+        for(int i=0; i<1000; i++);
         b.finishB();
     }
 
@@ -12,6 +14,8 @@ class A {
 class B {
     synchronized void methodB(A a) {
         System.out.println("Inside methodB!");
+        // To increase deadlock chance
+        for(int i=0; i<1000; i++);
         a.finishA();
     }
 
