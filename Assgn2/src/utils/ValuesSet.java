@@ -41,4 +41,8 @@ public class ValuesSet extends HashSet<String> {
 
         return result_set.size()!=0;
     }
+
+    private void print(String s) {
+        Utils.print(this.getClass().getSimpleName() + ": " + s);
+    }
 }

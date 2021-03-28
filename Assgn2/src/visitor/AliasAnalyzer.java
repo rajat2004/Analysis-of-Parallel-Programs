@@ -17,6 +17,11 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    // When no more updates occur, Main will set this
    public boolean answer_alias_queries = false;
 
+   private void updateMapsChanged(boolean changed) {
+      if (changed && !maps_updated)
+         maps_updated = true;
+   }
+
 
    // For printing debug statements
    // Use System.out.println() for actual output
@@ -28,13 +33,17 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    }
 
    // Assign different object for each "new ()" statement by incrementing
-   int reference_count = 0;
+   private int reference_count = 0;
+   // Distinguish between Copy,Alloc & Load statements
+   private boolean is_assignment = false;
+   private String left = null;
 
    // vars -> values
+   // TODO: Replace this with a method-specific Stack Map
    HashMap<String, ValuesSet> stack_map = new HashMap<>();
    // refs x fields -> values
    // Implemented as [ref][field] = value
-   HashMap<String, HashMap<String, ValuesSet>> heap_map = new HashMap<>();
+   HeapMap heap_map = new HeapMap();
 
    // Fields set in constructor
    SymbolTable st;
@@ -107,6 +116,9 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
+
+      heap_map.printAll();
+      stack_map.forEach((var, vs) -> print(var + ": " + vs.toString()));
       return _ret;
    }
 
@@ -350,7 +362,7 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       if (!answer_alias_queries)
          return _ret;
 
-         n.f0.accept(this, argu);
+      n.f0.accept(this, argu);
       String var1 = (String)n.f1.accept(this, argu);
       n.f2.accept(this, argu);
       String var2 = (String)n.f3.accept(this, argu);
@@ -404,13 +416,19 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       // Alloc, Copy or Load depending on Expression
       R _ret=null;
       String var = (String)n.f0.accept(this, argu);
+
+      // FieldRead is painful to do here, and becomes pretty complicated
+      is_assignment = true;
+      left = var;
+
       n.f1.accept(this, argu);
       String right = (String)n.f2.accept(this, argu);
       n.f3.accept(this, argu);
 
       if (var!=null && right!=null && st.variables.containsKey(var)) {
-         if (!stack_map.containsKey(var))
-            stack_map.put(var, new ValuesSet());
+//         if (!stack_map.containsKey(var))
+//            stack_map.put(var, new ValuesSet());
+         stack_map.putIfAbsent(var, new ValuesSet());
 
          boolean changed = false;
          // Check if its already existing variable
@@ -422,8 +440,7 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
          print(var + ": " + stack_map.get(var).toString());
 
-         if (changed && !maps_updated)
-            maps_updated = true;
+         updateMapsChanged(changed);
       }
 
       return _ret;
@@ -461,12 +478,18 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(FieldAssignmentStatement n, A argu) {
       // Store: x.f = y
       R _ret=null;
-      n.f0.accept(this, argu);
+      String obj_name = (String) n.f0.accept(this, argu);
       n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      String field = (String) n.f2.accept(this, argu);
       n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
+      String right = (String) n.f4.accept(this, argu);
       n.f5.accept(this, argu);
+
+      for(String ref : stack_map.get(obj_name)) {
+         boolean changed = heap_map.store(ref, field, stack_map.get(right));
+         updateMapsChanged(changed);
+      }
+
       return _ret;
    }
 
@@ -646,9 +669,20 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(FieldRead n, A argu) {
       // Load: x = y.f
       R _ret=null;
-      n.f0.accept(this, argu);
+      String var = (String) n.f0.accept(this, argu);
       n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      String field = (String) n.f2.accept(this, argu);
+
+      if (is_assignment && left!=null) {
+         // TODO: Separate out 'get' utility method
+         stack_map.putIfAbsent(left, new ValuesSet());
+
+         for(String ref : stack_map.get(var)) {
+            boolean changed = stack_map.get(left).union(heap_map.get(ref, field));
+            updateMapsChanged(changed);
+         }
+      }
+
       return _ret;
    }
 

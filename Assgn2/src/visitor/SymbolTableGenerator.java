@@ -10,9 +10,6 @@ import java.util.*;
  * Populates SymbolTable, performs Class Heirarchy Analysis
  */
 public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
-
-    public SymbolTable st = new SymbolTable();
-
     // For printing debug statements
     // Use System.out.println() for actual output
     private boolean debug = true;
@@ -21,6 +18,12 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         if (debug)
             System.out.println(this.getClass().getSimpleName() + ": " + s);
     }
+
+    public SymbolTable st = new SymbolTable();
+
+    private String curr_class = null;
+    private String curr_method = null;
+    private boolean is_class_field_declaration = false;
 
     //
     // Auto class visitors--probably don't need to be overridden.
@@ -111,6 +114,10 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
+
+        curr_class = "Main";
+        st.createClass(curr_class);
+
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
@@ -123,6 +130,7 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f11.accept(this, argu);
         n.f12.accept(this, argu);
         n.f13.accept(this, argu);
+
         n.f14.accept(this, argu);
         n.f15.accept(this, argu);
         n.f16.accept(this, argu);
@@ -151,9 +159,17 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     public R visit(ClassDeclaration n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        String class_name = (String) n.f1.accept(this, argu);
+        curr_class = class_name;
+        print("Current Class: " + curr_class);
+        st.createClass(curr_class);
+
         n.f2.accept(this, argu);
+
+        is_class_field_declaration = true;
         n.f3.accept(this, argu);
+        is_class_field_declaration = false;
+
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
         return _ret;
@@ -172,11 +188,19 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     public R visit(ClassExtendsDeclaration n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        String class_name = (String) n.f1.accept(this, argu);
         n.f2.accept(this, argu);
-        n.f3.accept(this, argu);
+        String parent_class = (String) n.f3.accept(this, argu);
+
+        curr_class = class_name;
+        print("Class " + curr_class + " extends " + parent_class);
+
         n.f4.accept(this, argu);
+
+        is_class_field_declaration = true;
         n.f5.accept(this, argu);
+        is_class_field_declaration = false;
+
         n.f6.accept(this, argu);
         n.f7.accept(this, argu);
         return _ret;
@@ -189,12 +213,15 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(VarDeclaration n, A argu) {
         R _ret=null;
-        R type = n.f0.accept(this, argu);
-        R var = n.f1.accept(this, argu);
+        String type = (String) n.f0.accept(this, argu);
+        String var = (String) n.f1.accept(this, argu);
         n.f2.accept(this, argu);
 
         if (type!=null) {
-            st.add((String)var, (String)type);
+            if (is_class_field_declaration)
+                st.addClassField(curr_class, var);
+            else
+                st.add(var, type);
         }
         return _ret;
     }
