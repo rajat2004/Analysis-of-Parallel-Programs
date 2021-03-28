@@ -1,4 +1,5 @@
 import syntaxtree.*;
+import utils.*;
 import visitor.*;
 
 public class Main {
@@ -6,9 +7,29 @@ public class Main {
       try {
 		Node root = new QTACoJavaParser(System.in).Goal();
 
-	 	System.out.println("Parsed successfully.");
-         
-		 // GJDepthFirst v = new GJDepthFirst(); 
+	 	Utils.print("Parsed successfully.");
+
+	 	SymbolTableGenerator stg = new SymbolTableGenerator();
+	 	root.accept(stg, null);
+
+	 	Utils.print("SymbolTableGen completed");
+
+	 	AliasAnalyzer aa = new AliasAnalyzer(stg.st);
+	 	int iteration = 0;
+
+	 	while(aa.maps_updated) {
+            Utils.print("Iteration: " + iteration);
+            iteration++;
+            root.accept(aa, null);
+        }
+
+	 	Utils.print("Map updates completed!");
+	 	aa.answer_alias_queries = true;
+
+	 	// Once more unto the breach
+        root.accept(aa, null);
+
+		 // GJDepthFirst v = new GJDepthFirst();
          // root.accept(v,null); // Your assignment part is invoked here.
 		 // System.out.println("Number of store statements = " + v.cnt);
 
@@ -30,6 +51,3 @@ public class Main {
       }
    }
 } 
-
-
-
