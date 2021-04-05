@@ -3,26 +3,50 @@ package utils;
 import java.util.HashMap;
 
 public class SymbolTable {
-    public HashMap<String, String> variables = new HashMap<>();
     public HashMap<String, ClassInfo> classes = new HashMap<>();
 
-    public void add(String var, String type) {
-        print("Adding: " + var + " " + type);
-        variables.put(var, type);
+    public void createClass(String cname, String parent) {
+        print("Creating class " + cname + ", Parent: " + parent);
+        classes.put(cname, new ClassInfo(cname, parent));
     }
 
     public void addClassField(String cname, String field) {
-        print("Class: " + cname + ", Adding field: " + field);
-        classes.get(cname).fields.add(field);
+//        print("Class: " + cname + ", Adding field: " + field);
+        classes.get(cname).addField(field);
     }
 
-    public void createClass(String cname) {
-        print("Creating class " + cname);
-        classes.put(cname, new ClassInfo());
+    public void addLocalVariable(String cname, String method, String var) {
+        print("addLocalVariable: " + cname + "::" + method + " " + var);
+        classes.get(cname).getMethod(method).addLocalVar(var);
+    }
+
+    public void copyFieldsMethods() {
+        // Copy all fields, non-overridden methods from parent to child
+        // TODO: Copy methods
+        while(true) {
+            boolean changed = false;
+            for(ClassInfo cinfo : classes.values()) {
+                String pname = cinfo.parent_class;
+                if (pname != null) {
+                    ClassInfo pinfo = classes.get(pname);
+                    changed = changed || cinfo.addFields(pinfo.fields);
+                }
+            }
+
+            if (!changed)
+                break;
+        }
+    }
+
+    public ClassInfo getClassInfo(String cname) {
+        return classes.get(cname);
     }
 
     public void printAll() {
-        variables.forEach((var, type) -> Utils.print(var + ": " + type) );
+        classes.forEach((cname, info) ->  {
+            Utils.print("\n");
+            info.printAll();
+        });
     }
 
     private void print(String s) {

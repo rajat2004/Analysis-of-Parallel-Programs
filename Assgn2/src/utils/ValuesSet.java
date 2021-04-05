@@ -2,13 +2,13 @@ package utils;
 
 import java.util.HashSet;
 
-public class ValuesSet extends HashSet<String> {
+public class ValuesSet extends HashSet<ReferenceObj> {
 
     public ValuesSet() {
         super();
     }
-    public ValuesSet(ValuesSet strings) {
-        super(strings);
+    public ValuesSet(ValuesSet vs) {
+        super(vs);
     }
 
     // Adds the contents of l1 to set
@@ -20,7 +20,7 @@ public class ValuesSet extends HashSet<String> {
         return prev_size != this.size();
     }
 
-    public boolean union(String value) {
+    public boolean union(ReferenceObj value) {
         ValuesSet tmp = new ValuesSet();
         tmp.add(value);
         return this.union(tmp);

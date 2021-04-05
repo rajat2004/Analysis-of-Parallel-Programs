@@ -18,12 +18,12 @@ public class Main {
 	 	int iteration = 0;
 
 	 	while(aa.maps_updated) {
-            Utils.print("Iteration: " + iteration);
+            Utils.print("\nIteration: " + iteration);
             iteration++;
             root.accept(aa, null);
         }
 
-	 	Utils.print("Map updates completed!");
+	 	Utils.print("\n\nMap updates completed!");
 	 	aa.answer_alias_queries = true;
 
 	 	// Once more unto the breach

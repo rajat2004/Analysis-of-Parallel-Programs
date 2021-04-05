@@ -5,6 +5,8 @@ import utils.*;
 
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Perform inter-procedural, flow-insensitive, context-insensitive may alias analysis
@@ -16,11 +18,6 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public boolean maps_updated = true;
    // When no more updates occur, Main will set this
    public boolean answer_alias_queries = false;
-
-   private void updateMapsChanged(boolean changed) {
-      if (changed && !maps_updated)
-         maps_updated = true;
-   }
 
 
    // For printing debug statements
@@ -36,14 +33,17 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    private int reference_count = 0;
    // Distinguish between Copy,Alloc & Load statements
    private boolean is_assignment = false;
+   // Used for x = new A().foo() type statements
+   private boolean is_message_send = false;
    private String left = null;
 
-   // vars -> values
-   // TODO: Replace this with a method-specific Stack Map
-   HashMap<String, ValuesSet> stack_map = new HashMap<>();
+
    // refs x fields -> values
    // Implemented as [ref][field] = value
-   HeapMap heap_map = new HeapMap();
+   private HeapMap heap_map = new HeapMap();
+
+   String curr_class = null;
+   String curr_method = null;
 
    // Fields set in constructor
    SymbolTable st;
@@ -51,6 +51,26 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public AliasAnalyzer(SymbolTable st_val) {
       super();
       st = st_val;
+   }
+
+   // Some helper methods
+
+   private void updateMapsChanged(boolean changed) {
+      if (changed && !maps_updated)
+         maps_updated = true;
+   }
+
+   private FunctionSummary getCurrFuncSummary() {
+      return st.getClassInfo(curr_class).getMethod(curr_method);
+   }
+
+   private StackMap getCurrentStack() {
+      return getCurrFuncSummary().stack;
+   }
+
+   private void printStack() {
+      print(curr_class + "::" + curr_method + " Stack");
+      getCurrentStack().printAll();
    }
 
    //
@@ -118,7 +138,7 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f2.accept(this, argu);
 
       heap_map.printAll();
-      stack_map.forEach((var, vs) -> print(var + ": " + vs.toString()));
+//      stack_map.forEach((var, vs) -> print(var + ": " + vs.toString()));
       return _ret;
    }
 
@@ -146,11 +166,17 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
+
+      curr_class = "Main";
+
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
       n.f6.accept(this, argu);
+
+      curr_method = "main";
+
       n.f7.accept(this, argu);
       n.f8.accept(this, argu);
       n.f9.accept(this, argu);
@@ -162,6 +188,12 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f15.accept(this, argu);
       n.f16.accept(this, argu);
       n.f17.accept(this, argu);
+
+      printStack();
+
+      curr_method = null;
+      curr_class = null;
+
       return _ret;
    }
 
@@ -186,11 +218,14 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(ClassDeclaration n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
+      curr_class = (String) n.f1.accept(this, argu);
+      print("Current class: " + curr_class);
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
+
+      curr_class = null;
       return _ret;
    }
 
@@ -207,13 +242,18 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(ClassExtendsDeclaration n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      curr_class = (String) n.f1.accept(this, argu);
+      String parent = (String) n.f2.accept(this, argu);
+
+      print("Current class: " + curr_class + ", extends " + parent);
+
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
       n.f6.accept(this, argu);
       n.f7.accept(this, argu);
+
+      curr_class = null;
       return _ret;
    }
 
@@ -248,8 +288,11 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(MethodDeclaration n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      String type = (String) n.f1.accept(this, argu);
+      curr_method = (String) n.f2.accept(this, argu);
+
+      print(curr_class + "::" + curr_method + " --- Return: " + type);
+
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
@@ -260,6 +303,10 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f10.accept(this, argu);
       n.f11.accept(this, argu);
       n.f12.accept(this, argu);
+
+      printStack();
+
+      curr_method = null;
       return _ret;
    }
 
@@ -369,7 +416,11 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f4.accept(this, argu);
 
       print("Query: " + var1 + " " + var2);
-      boolean result = stack_map.get(var1).intersection(stack_map.get(var2));
+      // TODO: Confirm if fields can also be included here
+      //  mostly not since it would require *this* ref, and multiple invocations are also possible
+      //  only place Queries could actually occur is Main::psvm, so below should be fine
+      StackMap curr_stack = getCurrentStack();
+      boolean result = curr_stack.getValues(var1).intersection(curr_stack.getValues(var2));
       if (result)
          System.out.println("YES");
       else
@@ -415,35 +466,55 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(AssignmentStatement n, A argu) {
       // Alloc, Copy or Load depending on Expression
       R _ret=null;
-      String var = (String)n.f0.accept(this, argu);
+      String left_var = (String)n.f0.accept(this, argu);
 
       // FieldRead is painful to do here, and becomes pretty complicated
       is_assignment = true;
-      left = var;
+      left = left_var;
 
       n.f1.accept(this, argu);
-      String right = (String)n.f2.accept(this, argu);
+//      String right_var = (String)n.f2.accept(this, argu);
+      ValuesSet right_values = (ValuesSet) n.f2.accept(this, argu);
       n.f3.accept(this, argu);
 
-      if (var!=null && right!=null && st.variables.containsKey(var)) {
+//      if (var!=null && right!=null && st.variables.containsKey(var)) {
+      // TODO: Add method to check in local stack, and then class fields
+      // Field Assignment inside class method will need some special handling with *this* ptr
+      if (left_var!=null && right_values!=null && getCurrFuncSummary().isVariablePresent(left_var)) {
 //         if (!stack_map.containsKey(var))
 //            stack_map.put(var, new ValuesSet());
-         stack_map.putIfAbsent(var, new ValuesSet());
+//         stack_map.putIfAbsent(var, new ValuesSet());
 
-         boolean changed = false;
+         // TODO: Make it work for class fields
+         StackMap curr_stack = getCurrentStack();
+//         boolean changed = curr_stack.getValues(left_var).union(curr_stack.getValues(right_var));
+         boolean changed = curr_stack.getValues(left_var).union(right_values);
          // Check if its already existing variable
-         if (stack_map.containsKey(right))
-            changed = stack_map.get(var).union(stack_map.get(right));
-         // Or a new reference
-         else
-            changed = stack_map.get(var).union(right);
+//         if (stack_map.containsKey(right))
+//            changed = stack_map.get(var).union(stack_map.get(right));
+//         // Or a new reference
+//         else
+//            changed = stack_map.get(var).union(right);
+//         changed = curr_stack.getValues(left_var)
 
-         print(var + ": " + stack_map.get(var).toString());
+         print(left_var + ": " + curr_stack.getValues(left_var).toString());
 
+         generateAllFields(curr_stack.getValues(left_var));
          updateMapsChanged(changed);
       }
 
+      is_assignment = false;
+      left = null;
+
       return _ret;
+   }
+
+   // Creates entries for all the references x fields in the heap
+   private void generateAllFields(ValuesSet values) {
+      for(ReferenceObj ref : values) {
+         HashSet<String> all_fields = st.getClassInfo(ref.type).fields;
+         heap_map.createEntries(ref.toString(), all_fields);
+      }
    }
 
    /**
@@ -478,15 +549,16 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(FieldAssignmentStatement n, A argu) {
       // Store: x.f = y
       R _ret=null;
-      String obj_name = (String) n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      String field = (String) n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
-      String right = (String) n.f4.accept(this, argu);
-      n.f5.accept(this, argu);
+      String obj_name = n.f0.f0.tokenImage;
+      String field = n.f2.f0.tokenImage;
+      String right_var = n.f4.f0.tokenImage;
 
-      for(String ref : stack_map.get(obj_name)) {
-         boolean changed = heap_map.store(ref, field, stack_map.get(right));
+      print("FieldAssignment: " + obj_name + "." + field + " = " + right_var);
+
+      // TODO: Create method to get ValueSet for local var from class-field or stack
+      StackMap curr_stack = getCurrentStack();
+      for(ReferenceObj ref : curr_stack.getValues(obj_name)) {
+         boolean changed = heap_map.store(ref.toString(), field, curr_stack.getValues(right_var));
          updateMapsChanged(changed);
       }
 
@@ -669,16 +741,21 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(FieldRead n, A argu) {
       // Load: x = y.f
       R _ret=null;
-      String var = (String) n.f0.accept(this, argu);
+      String var = n.f0.f0.tokenImage;
       n.f1.accept(this, argu);
-      String field = (String) n.f2.accept(this, argu);
+      String field = n.f2.f0.tokenImage;
+
+      print("FieldRead: " + left + " = " + var + "." + field);
 
       if (is_assignment && left!=null) {
          // TODO: Separate out 'get' utility method
-         stack_map.putIfAbsent(left, new ValuesSet());
+         // TODO: Create method to get ValueSet for local var from class-field or stack
+//         stack_map.putIfAbsent(left, new ValuesSet());
 
-         for(String ref : stack_map.get(var)) {
-            boolean changed = stack_map.get(left).union(heap_map.get(ref, field));
+         StackMap curr_stack = getCurrentStack();
+
+         for(ReferenceObj ref : curr_stack.getValues(var)) {
+            boolean changed = curr_stack.getValues(left).union(heap_map.get(ref.toString(), field));
             updateMapsChanged(changed);
          }
       }
@@ -696,12 +773,15 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     */
    public R visit(MessageSend n, A argu) {
       R _ret=null;
+      is_message_send = true;
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
+
+      is_message_send = false;
       return _ret;
    }
 
@@ -774,10 +854,17 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     * f0 -> <IDENTIFIER>
     */
    public R visit(Identifier n, A argu) {
-//      R _ret=null;
       n.f0.accept(this, argu);
       String name = n.f0.tokenImage;
 //      print("Identifier: " + name);
+
+      // TODO: Check in class fields as well
+      // Handle the basic case => x = y
+      // Screwed up implementation due to ValuesSet being used as the return
+      if (is_assignment && getCurrentStack().isVarPresent(name)) {
+         return (R)getCurrentStack().getValues(name);
+      }
+
       return (R)name;
    }
 
@@ -816,14 +903,40 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(AllocationExpression n, A argu) {
 //      R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
+      String type = n.f1.f0.tokenImage;
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
 
       reference_count++;
-      String ref_name = "R" + reference_count;
-      print("New ref: " + ref_name);
-      return (R)ref_name;
+      ReferenceObj ref = new ReferenceObj(type, reference_count);
+//      String ref_name = "R" + reference_count;
+//      print("New ref: " + ref_name);
+//      return (R)ref_name;
+
+
+      if (is_message_send) {
+         // Expects a variable name
+         // Generate a tmp variable for each new alloc, this simplifies the code
+         // 1. x = new A().foo()
+         //    Treat it as a normal y.foo() call
+         String tmp_var = "TMP" + reference_count;
+         // This is normally done in SymbolTableGen
+         getCurrentStack().add(tmp_var);
+
+         // TODO: Add the fields in the heap map
+         getCurrentStack().getValues(tmp_var).add(ref);
+         generateAllFields(getCurrentStack().getValues(tmp_var));
+
+         print("MessageSend: Tmp Var: " + tmp_var);
+         return (R)tmp_var;
+      }
+      else {
+         // Expects a ValuesSet
+         print("New ref: " + ref.toString());
+         ValuesSet tmp_vs = new ValuesSet();
+         tmp_vs.add(ref);
+         return (R)tmp_vs;
+      }
    }
 
    /**

@@ -1,7 +1,6 @@
 package visitor;
 
 import syntaxtree.*;
-//import utils.SymbolTable;
 import utils.*;
 
 import java.util.*;
@@ -86,7 +85,13 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
 
+        print("Before copying fields, methods");
         st.printAll();
+
+        st.copyFieldsMethods();
+        print("After copying fields, methods");
+        st.printAll();
+
         return _ret;
     }
 
@@ -116,13 +121,17 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
 
         curr_class = "Main";
-        st.createClass(curr_class);
+        st.createClass(curr_class, null);
 
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
         n.f6.accept(this, argu);
+
+        curr_method = "main";
+        st.getClassInfo(curr_class).addMethod(curr_method);
+
         n.f7.accept(this, argu);
         n.f8.accept(this, argu);
         n.f9.accept(this, argu);
@@ -134,7 +143,12 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f14.accept(this, argu);
         n.f15.accept(this, argu);
         n.f16.accept(this, argu);
+
+        curr_method = null;
+
         n.f17.accept(this, argu);
+
+        curr_class = null;
         return _ret;
     }
 
@@ -162,7 +176,7 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         String class_name = (String) n.f1.accept(this, argu);
         curr_class = class_name;
         print("Current Class: " + curr_class);
-        st.createClass(curr_class);
+        st.createClass(curr_class, null);
 
         n.f2.accept(this, argu);
 
@@ -172,6 +186,9 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
 
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        curr_class = null;
+
         return _ret;
     }
 
@@ -195,6 +212,8 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         curr_class = class_name;
         print("Class " + curr_class + " extends " + parent_class);
 
+        st.createClass(curr_class, parent_class);
+
         n.f4.accept(this, argu);
 
         is_class_field_declaration = true;
@@ -203,6 +222,9 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
 
         n.f6.accept(this, argu);
         n.f7.accept(this, argu);
+
+        curr_class = null;
+
         return _ret;
     }
 
@@ -221,7 +243,8 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
             if (is_class_field_declaration)
                 st.addClassField(curr_class, var);
             else
-                st.add(var, type);
+//                st.add(var, type);
+                st.addLocalVariable(curr_class, curr_method, var);
         }
         return _ret;
     }
@@ -243,8 +266,13 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(MethodDeclaration n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        String return_type = (String) n.f0.accept(this, argu);
+        String method_name = (String) n.f1.accept(this, argu);
+
+        curr_method = method_name;
+        st.getClassInfo(curr_class).addMethod(curr_method);
+        print(curr_class + "::" + curr_method + "() ---- " + "Return tye: " + return_type);
+
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
