@@ -7,6 +7,13 @@ public class Main {
       try {
 		Node root = new QTACoJavaParser(System.in).Goal();
 
+		boolean turn_off_all_debug = false;
+		if (turn_off_all_debug) {
+		    Utils.debug = false;
+            AliasAnalyzer.debug = false;
+            SymbolTableGenerator.debug = false;
+        }
+
 	 	Utils.print("Parsed successfully.");
 
 	 	SymbolTableGenerator stg = new SymbolTableGenerator();

@@ -13,7 +13,7 @@ public class ReferenceObj {
 
     @Override
     public String toString() {
-        return "R" + type + id;
+        return "R" + "_" + type + "_" + id;
     }
 
     @Override

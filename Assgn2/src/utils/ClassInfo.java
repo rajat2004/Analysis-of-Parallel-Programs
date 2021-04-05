@@ -28,6 +28,10 @@ public class ClassInfo {
         return fields.size()!=prev_size;
     }
 
+    public boolean isField(String var_name) {
+        return fields.contains(var_name);
+    }
+
     public void addMethod(String method_name) {
         print("addMethod: " + method_name);
         methods.put(method_name, new FunctionSummary(method_name));
@@ -47,7 +51,6 @@ public class ClassInfo {
         Utils.print("Parent: " + parent_class);
         Utils.print("Child classes: " + child_classes);
         Utils.print("Fields: " + fields);
-//        fields.forEach((f, vs) -> Utils.print("\t" + f + ": " + vs));
         Utils.print("Methods: ");
         methods.forEach((m, summary) -> {
             Utils.print("\t" + m + ": ");

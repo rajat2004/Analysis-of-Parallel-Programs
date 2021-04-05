@@ -11,7 +11,7 @@ import java.util.*;
 public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     // For printing debug statements
     // Use System.out.println() for actual output
-    private boolean debug = true;
+    public static boolean debug = true;
 
     private void print(String s) {
         if (debug)
@@ -118,9 +118,9 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     public R visit(MainClass n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        String main_class = n.f1.f0.tokenImage;
 
-        curr_class = "Main";
+        curr_class = main_class;
         st.createClass(curr_class, null);
 
         n.f2.accept(this, argu);
@@ -243,7 +243,6 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
             if (is_class_field_declaration)
                 st.addClassField(curr_class, var);
             else
-//                st.add(var, type);
                 st.addLocalVariable(curr_class, curr_method, var);
         }
         return _ret;
@@ -266,14 +265,14 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(MethodDeclaration n, A argu) {
         R _ret=null;
-        String return_type = (String) n.f0.accept(this, argu);
-        String method_name = (String) n.f1.accept(this, argu);
+        n.f0.accept(this, argu);
+        String return_type = (String) n.f1.accept(this, argu);
+        String method_name = n.f2.f0.tokenImage;
 
         curr_method = method_name;
         st.getClassInfo(curr_class).addMethod(curr_method);
         print(curr_class + "::" + curr_method + "() ---- " + "Return tye: " + return_type);
 
-        n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);

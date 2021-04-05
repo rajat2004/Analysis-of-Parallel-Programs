@@ -13,7 +13,7 @@ public class HeapMap {
         print("Store: " + ref + "." + field + " ---> " + vs.toString());
 //        setDefault(ref, field);
 
-        return map.get(ref).get(field).union(vs);
+        return get(ref, field).union(vs);
     }
 
     public ValuesSet get(String ref, String field) {

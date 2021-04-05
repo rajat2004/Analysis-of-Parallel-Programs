@@ -6,7 +6,11 @@ public class StackMap {
     HashMap<String, ValuesSet> variables = new HashMap<>();
 
     public void add(String var) {
-        variables.putIfAbsent(var, new ValuesSet());
+        add(var, new ValuesSet());
+    }
+
+    public void add(String var, ValuesSet values) {
+        variables.putIfAbsent(var, values);
     }
 
     public boolean isVarPresent(String var) {
