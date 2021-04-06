@@ -55,8 +55,7 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    // Some helper methods
 
    private void updateMapsChanged(boolean changed) {
-      if (changed && !maps_updated)
-         maps_updated = true;
+      maps_updated |= changed;
    }
 
    private ClassInfo getCurrClassInfo() {
@@ -177,7 +176,7 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       n.f5.accept(this, argu);
       n.f6.accept(this, argu);
 
-      curr_method = "main";
+      curr_method = Utils.MAIN_METHOD;
 
       n.f7.accept(this, argu);
       n.f8.accept(this, argu);
@@ -295,8 +294,8 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
       print(curr_class + "::" + curr_method + " --- Return: " + type);
 
-      if (!isMethodPresentInWorklist(curr_class, curr_method))
-         return _ret;
+//      if (!isMethodPresentInWorklist(curr_class, curr_method))
+//         return _ret;
 
       boolean erased = false;
       for(Iterator<WorklistItem> itr = worklist.iterator(); itr.hasNext(); ) {
@@ -305,10 +304,11 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
             print("Removing " + curr_class + ":::" + curr_method + " from worklist");
             itr.remove();
             erased = true;
+            break;
          }
       }
 
-      assert erased;
+//      assert erased;
 
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
@@ -323,15 +323,16 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
       print(curr_class + ":::" + curr_method + " Return: " + return_var + " ===> " + scope);
       if (scope.isPresent()) {
-         boolean changed = getCurrFuncSummary().return_set.union(
-                                                   getValuesFromScope(return_var, scope));
+         ValuesSet return_values = getValuesFromScope(return_var, scope);
+         print("Return values: " + return_values);
+         boolean changed = getCurrFuncSummary().return_set.union(return_values);
          updateMapsChanged(changed);
       }
 
       n.f11.accept(this, argu);
       n.f12.accept(this, argu);
 
-      printStack();
+      getCurrFuncSummary().printAll();
 
       curr_method = null;
       return _ret;
@@ -388,11 +389,11 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     * f2 -> "]"
     */
    public R visit(ArrayType n, A argu) {
-      R _ret=null;
+//      R _ret=null;
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
-      return _ret;
+      return (R)Utils.ARRAY_CLASS;
    }
 
    /**
@@ -450,9 +451,9 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       boolean result = vs1.intersection(vs2);
 
       if (result)
-         System.out.println("YES");
+         System.out.println("Yes");
       else
-         System.out.println("NO");
+         System.out.println("No");
 
       return _ret;
    }
@@ -506,33 +507,9 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       ValuesSet right_values = (ValuesSet) n.f2.accept(this, argu);
       n.f3.accept(this, argu);
 
-      // Field Assignment inside class method will need some special handling with *this* ptr
-      VarScope left_var_scope = isVarPresentInScope(left_var);
-      print("Assignment: " + left_var + " = ... ; " + left_var_scope);
-      if (right_values!=null && left_var_scope.isPresent()) {
-
-         if (left_var_scope.is_class_field) {
-            print("Left var is a field, ah shit");
-            // Requires updating all [this x field] ValueSets
-            print("This refs: " + getCurrFuncSummary().this_ref);
-
-            for(ReferenceObj ref : getCurrFuncSummary().this_ref) {
-               ValuesSet left_values = heap_map.get(ref.toString(), left_var);
-               boolean changed = left_values.union(right_values);
-               updateMapsChanged(changed);
-
-               // Case of `F = new A()`
-               addAllFieldsToHeap(left_values);
-            }
-         }
-         else {
-            ValuesSet left_values = getValuesFromScope(left_var, left_var_scope);
-            boolean changed = left_values.union(right_values);
-            updateMapsChanged(changed);
-
-            // Used for `x = new A()` case to populate heap
-            addAllFieldsToHeap(left_values);
-         }
+      print("AssignmentStatement: " + left_var + " = .....");
+      if (right_values!=null && !right_values.isEmpty()) {
+         updateLeftVarAssignment(left_var_name, right_values);
       }
 
       is_assignment = false;
@@ -541,10 +518,43 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       return _ret;
    }
 
+   private void updateLeftVarAssignment(String l_var, ValuesSet right_values) {
+      VarScope left_var_scope = isVarPresentInScope(l_var);
+      print("Assignment: " + l_var + " = ... ; " + left_var_scope);
+
+      if (!left_var_scope.isPresent())
+         return;
+
+      if (left_var_scope.is_class_field) {
+         print("Left var is a field, ah shit");
+         // Requires updating all [this x field] ValueSets
+         print("This refs: " + getCurrFuncSummary().this_ref);
+
+         for(ReferenceObj ref : getCurrFuncSummary().this_ref) {
+            ValuesSet left_values = heap_map.get(ref.toString(), l_var);
+            boolean changed = left_values.union(right_values);
+            updateMapsChanged(changed);
+
+            // Case of `F = new A()`
+            addAllFieldsToHeap(left_values);
+         }
+      }
+      else {
+         ValuesSet left_values = getValuesFromScope(l_var, left_var_scope);
+         boolean changed = left_values.union(right_values);
+         updateMapsChanged(changed);
+
+         // Used for `x = new A()` case to populate heap
+         addAllFieldsToHeap(left_values);
+      }
+   }
+
    private VarScope isVarPresentInScope(String var_name) {
       VarScope scope = new VarScope();
+      if (var_name.equals("this"))
+         scope.is_this_var = true;
       // 1. Check local stack
-      if (getCurrentStack().isVarPresent(var_name)) {
+      else if (getCurrentStack().isVarPresent(var_name)) {
          scope.is_stack_var = true;
       }
       // 2. Parameters
@@ -560,23 +570,16 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    }
 
    private ValuesSet getValuesFromScope(String var_name, VarScope scope) {
-      if (scope.is_stack_var)
+      if (scope.is_this_var)
+         return getCurrFuncSummary().this_ref;
+      else if (scope.is_stack_var)
          return getCurrentStack().getValues(var_name);
       else if (scope.is_parameter)
-         return getCurrFuncSummary().getParameterValues(var_name);
-      else if (scope.is_class_field) {
+         return getCurrFuncSummary().getFormalParamValues(var_name);
+      else if (scope.is_class_field)
          return getAllValuesForField(var_name);
-      }
       else
          return new ValuesSet();
-   }
-
-   // When too lazy to write 3 lines again ;-)
-   private ValuesSet getValuesForVar(String var_name) {
-      VarScope scope = isVarPresentInScope(var_name);
-      ValuesSet values = getValuesFromScope(var_name, scope);
-      print(var_name + " => " + scope + " ; " + values);
-      return values;
    }
 
    private ValuesSet getAllValuesForField(String field) {
@@ -589,12 +592,20 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       return values;
    }
 
+   // When too lazy to write 3 lines again ;-)
+   private ValuesSet getValuesForVar(String var_name) {
+      VarScope scope = isVarPresentInScope(var_name);
+      ValuesSet values = getValuesFromScope(var_name, scope);
+      print(var_name + " => " + scope + " ; " + values);
+      return values;
+   }
+
    // Creates entries for all the references x fields in the heap
    private void addAllFieldsToHeap(ValuesSet values) {
       print("Adding Heap Field entries: " + values);
       for(ReferenceObj ref : values) {
          HashSet<String> all_fields = st.getClassInfo(ref.type).fields;
-         print("Ref: " + ref + " ; Fields: " + all_fields);
+         print("Ref: " + ref + " Type: " + ref.type + " ; Fields: " + all_fields);
          heap_map.createEntries(ref.toString(), all_fields);
       }
    }
@@ -637,14 +648,9 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
       print("FieldAssignment: " + left_obj_name + "." + field + " = " + right_var);
 
-      VarScope left_obj_scope = isVarPresentInScope(left_obj_name);
-      ValuesSet left_values = getValuesFromScope(left_obj_name, left_obj_scope);
-
-      print(left_obj_name + " => " + left_obj_scope + " ; Values: " + left_values);
-
-      VarScope right_var_scope = isVarPresentInScope(right_var);
-      ValuesSet right_values = getValuesFromScope(right_var, right_var_scope);
-      print(right_var + " => " + right_var_scope + " ; Values: " + right_values);
+      // Left_values here should be fine, since we aren't updating the field directly
+      ValuesSet left_values = getValuesForVar(left_obj_name);
+      ValuesSet right_values = getValuesForVar(right_var);
 
       for(ReferenceObj ref : left_values) {
          boolean changed = heap_map.store(ref.toString(), field, right_values);
@@ -837,13 +843,20 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       print("FieldRead: " + left_var_name + " = " + right_obj_name + "." + field);
 
       if (is_assignment && left_var_name!=null) {
-         ValuesSet left_values = getValuesForVar(left_var_name);
+         VarScope left_var_scope = isVarPresentInScope(left_var_name);
+         if (!left_var_scope.isPresent()) {
+            print("Primitive type on left: " + left_var_name + " " + left_var_scope);
+            return _ret;
+         }
+
          ValuesSet right_obj_refs = getValuesForVar(right_obj_name);
+         ValuesSet final_right_values = new ValuesSet();
 
          for(ReferenceObj ref : right_obj_refs) {
-            boolean changed = left_values.union(heap_map.get(ref.toString(), field));
-            updateMapsChanged(changed);
+            final_right_values.union(heap_map.get(ref.toString(), field));
          }
+
+         updateLeftVarAssignment(left_var_name, final_right_values);
       }
 
       return _ret;
@@ -865,28 +878,35 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       String var_name = (String) n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       String method_name = n.f2.f0.tokenImage;
-
       print("MessageSend: " + var_name + "." + method_name + "()");
 
-      ValuesSet refs = getValuesForVar(var_name);
-
-      // Add methods to queue based on each possible ref type
-      updateWorklist(refs, method_name);
+      ArrayList<ValuesSet> all_param_values_list = new ArrayList<>();
 
       n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
+      n.f4.accept(this, (A) all_param_values_list);
       n.f5.accept(this, argu);
+
+      ValuesSet this_refs = getValuesForVar(var_name);
+
+      // Add methods to queue based on each possible ref type
+      updateMethodAndWorklist(this_refs, method_name, all_param_values_list);
 
       is_message_send = false;
       return _ret;
    }
 
-   private void updateWorklist(ValuesSet refs, String method_name) {
+   private void updateMethodAndWorklist(ValuesSet this_refs, String method_name, ArrayList<ValuesSet> all_param_values_list) {
       print("Previous Worklist: " + worklist);
-      print("Updating Worklist: " + refs + ", Method: " + method_name);
-      for(ReferenceObj ref : refs) {
+      print("Updating Worklist: ");
+      print("This Refs: " + this_refs);
+      print("Method: " + method_name);
+      print("All param values: " + all_param_values_list);
+
+      for(ReferenceObj ref : this_refs) {
          String type = ref.type;
          FunctionSummary method_info = st.getClassInfo(type).getMethod(method_name);
+
+         method_info.printAll();
 
          // 1. Update this refs
          boolean changed = method_info.updateThisRefs(ref);
@@ -895,14 +915,18 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
          // 2. Update return values
          // Only works since MessageSend requires a return value
          // Check if var present for primitive types
-         VarScope left_var_scope = isVarPresentInScope(left_var_name);
-         if (left_var_scope.isPresent()) {
-            changed = getValuesFromScope(left_var_name, left_var_scope).union(method_info.return_set);
-            updateMapsChanged(changed);
-         }
+         print("MessageSend: Return update: Left: " + left_var_name);
+         updateLeftVarAssignment(left_var_name, method_info.return_set);
+
 
          // 3. Update the function parameter values
-         // TODO!!!
+         for(int i=0; i<all_param_values_list.size(); i++) {
+            ValuesSet new_param_values = all_param_values_list.get(i);
+            ValuesSet formal_param_values = method_info.getFormalParamValues(i);
+            changed = formal_param_values.union(new_param_values);
+
+            updateMapsChanged(changed);
+         }
 
          if (!isMethodPresentInWorklist(type, method_name)) {
             WorklistItem item = new WorklistItem(type, method_name);
@@ -929,7 +953,14 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     */
    public R visit(ArgList n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
+      ArrayList<ValuesSet> all_param_values_list = (ArrayList<ValuesSet>)argu;
+      String param = n.f0.f0.tokenImage;
+
+      print("MessageSend: Param: " + param);
+      ValuesSet param_values = getValuesForVar(param);
+
+      all_param_values_list.add(param_values);
+
       n.f1.accept(this, argu);
       return _ret;
    }
@@ -941,7 +972,13 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(ArgRest n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
+      ArrayList<ValuesSet> all_param_values_list = (ArrayList<ValuesSet>)argu;
+      String param = n.f1.f0.tokenImage;
+
+      print("MessageSend: Param: " + param);
+      ValuesSet param_values = getValuesForVar(param);
+
+      all_param_values_list.add(param_values);
       return _ret;
    }
 
@@ -994,7 +1031,6 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(Identifier n, A argu) {
       n.f0.accept(this, argu);
       String name = n.f0.tokenImage;
-//      print("Identifier: " + name);
 
       // Handle the basic case => x = y
       // Screwed up implementation due to ValuesSet being used as the return
@@ -1016,7 +1052,19 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    public R visit(ThisExpression n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      return _ret;
+
+      String name = "this";
+
+      // Handle the basic case => x = y
+      // Screwed up implementation due to ValuesSet being used as the return
+      if (is_assignment && !is_message_send) {
+         // Could get the values directly, but just to be 200% sure
+         VarScope scope = isVarPresentInScope(name);
+         print("Assignment Identifier: (This) " + name + ": " + scope);
+         return (R)getValuesFromScope(name, scope);
+      }
+
+      return (R)name;
    }
 
    /**
@@ -1027,13 +1075,21 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     * f4 -> "]"
     */
    public R visit(ArrayAllocationExpression n, A argu) {
-      R _ret=null;
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
-      return _ret;
+
+      String type = Utils.ARRAY_CLASS;
+      reference_count++;
+      ReferenceObj ref = new ReferenceObj(type, reference_count);
+
+      // Expects a ValuesSet
+      print("ArrayAllocation ref: " + ref.toString());
+      ValuesSet tmp_vs = new ValuesSet();
+      tmp_vs.add(ref);
+      return (R)tmp_vs;
    }
 
    /**
@@ -1043,7 +1099,6 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
     * f3 -> ")"
     */
    public R visit(AllocationExpression n, A argu) {
-//      R _ret=null;
       n.f0.accept(this, argu);
       String type = n.f1.f0.tokenImage;
       n.f2.accept(this, argu);

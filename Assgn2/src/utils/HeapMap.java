@@ -12,6 +12,8 @@ public class HeapMap {
     public boolean store(String ref, String field, ValuesSet vs) {
         print("Store: " + ref + "." + field + " ---> " + vs.toString());
 //        setDefault(ref, field);
+        if (vs.isEmpty())
+            return false;
 
         return get(ref, field).union(vs);
     }

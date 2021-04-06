@@ -16,7 +16,14 @@ public class FunctionSummary {
     }
 
     public void addLocalVar(String var) {
+        print("Adding local var: " + var);
         stack.add(var);
+    }
+
+    public void addMethodParameter(String param_name, String type) {
+        print("Adding parameter: " + param_name + ", of type " + type);
+        formal_params.add(param_name);
+        parameters_mp.put(param_name, new ValuesSet());
     }
 
     // Used to check if var is not of primitive type
@@ -28,8 +35,17 @@ public class FunctionSummary {
         return formal_params.contains(var_name);
     }
 
-    public ValuesSet getParameterValues(String var_name) {
+    public ValuesSet getFormalParamValues(String var_name) {
         return parameters_mp.get(var_name);
+    }
+
+    public String getFormalParamName(int id) {
+        return formal_params.get(id);
+    }
+
+    public ValuesSet getFormalParamValues(int id) {
+        String param_name = getFormalParamName(id);
+        return getFormalParamValues(param_name);
     }
 
     public boolean updateThisRefs(ReferenceObj ref) {
@@ -44,4 +60,9 @@ public class FunctionSummary {
         Utils.print("Stack: ");
         stack.printAll();
     }
+
+    private void print(String s) {
+        Utils.print(this.getClass().getSimpleName() + ": " + name + ": " + s);
+    }
+
 }

@@ -11,7 +11,7 @@ import java.util.*;
 public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     // For printing debug statements
     // Use System.out.println() for actual output
-    public static boolean debug = true;
+    public static boolean debug = false;
 
     private void print(String s) {
         if (debug)
@@ -23,6 +23,14 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
     private String curr_class = null;
     private String curr_method = null;
     private boolean is_class_field_declaration = false;
+
+    private ClassInfo getCurrClassInfo() {
+        return st.getClassInfo(curr_class);
+    }
+
+    private FunctionSummary getCurrFuncSummary() {
+        return getCurrClassInfo().getMethod(curr_method);
+    }
 
     //
     // Auto class visitors--probably don't need to be overridden.
@@ -85,6 +93,9 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
 
+        // Add Dummy Array class
+        st.createClass(Utils.ARRAY_CLASS, null);
+
         print("Before copying fields, methods");
         st.printAll();
 
@@ -129,8 +140,8 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         n.f5.accept(this, argu);
         n.f6.accept(this, argu);
 
-        curr_method = "main";
-        st.getClassInfo(curr_class).addMethod(curr_method);
+        curr_method = Utils.MAIN_METHOD;
+        st.getClassInfo(curr_class).createMethod(curr_method);
 
         n.f7.accept(this, argu);
         n.f8.accept(this, argu);
@@ -241,9 +252,11 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
 
         if (type!=null) {
             if (is_class_field_declaration)
-                st.addClassField(curr_class, var);
+//                st.addClassField(curr_class, var);
+                getCurrClassInfo().addField(var);
             else
-                st.addLocalVariable(curr_class, curr_method, var);
+//                st.addLocalVariable(curr_class, curr_method, var);
+                getCurrFuncSummary().addLocalVar(var);
         }
         return _ret;
     }
@@ -270,8 +283,8 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
         String method_name = n.f2.f0.tokenImage;
 
         curr_method = method_name;
-        st.getClassInfo(curr_class).addMethod(curr_method);
-        print(curr_class + "::" + curr_method + "() ---- " + "Return tye: " + return_type);
+        st.getClassInfo(curr_class).createMethod(curr_method);
+        print(curr_class + "::" + curr_method + "() ---- " + "Return type: " + return_type);
 
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
@@ -303,8 +316,9 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(FormalParameter n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        String type = (String) n.f0.accept(this, argu);
+        String name = (String) n.f1.accept(this, argu);
+        getCurrFuncSummary().addMethodParameter(name, type);
         return _ret;
     }
 
@@ -337,11 +351,11 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      * f2 -> "]"
      */
     public R visit(ArrayType n, A argu) {
-        R _ret=null;
+//        R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
-        return _ret;
+        return (R)Utils.ARRAY_CLASS;
     }
 
     /**
@@ -740,7 +754,6 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
      * f0 -> <IDENTIFIER>
      */
     public R visit(Identifier n, A argu) {
-//        R _ret=null;
         n.f0.accept(this, argu);
         String name = n.f0.tokenImage;
 //        print("Identifier: " + name);

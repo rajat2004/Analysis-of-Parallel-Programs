@@ -2,12 +2,11 @@ package utils;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Set;
 
 public class ClassInfo {
     String name;
     String parent_class;
-    HashSet<String> child_classes = new HashSet<>();
+//    HashSet<String> child_classes = new HashSet<>();
     public HashSet<String> fields = new HashSet<>();
     HashMap<String, FunctionSummary> methods = new HashMap<>();
 
@@ -32,26 +31,36 @@ public class ClassInfo {
         return fields.contains(var_name);
     }
 
-    public void addMethod(String method_name) {
-        print("addMethod: " + method_name);
+    public HashSet<String> getAllFields() {
+        // Fields have already been copied from the parent class in SymbolTable::copyfieldsMethods
+        return fields;
+    }
+
+    public void createMethod(String method_name) {
+        print("createMethod: " + method_name);
         methods.put(method_name, new FunctionSummary(method_name));
+    }
+
+    public boolean addMethods(HashMap<String, FunctionSummary> parent_methods) {
+        int prev_size = methods.size();
+        parent_methods.forEach((method_name, summary) -> {
+            // Overridden methods shouldn't be replaced
+            methods.putIfAbsent(method_name, summary);
+        });
+
+        return methods.size()!=prev_size;
     }
 
     public FunctionSummary getMethod(String method_name) {
         return methods.get(method_name);
     }
 
-    // TODO: Either copy all fields from parent at the end of SymbolTable, or recurse above
-    public HashSet<String> getAllFields() {
-        return fields;
-    }
-
     public void printAll() {
         Utils.print("Class " + name);
         Utils.print("Parent: " + parent_class);
-        Utils.print("Child classes: " + child_classes);
+//        Utils.print("Child classes: " + child_classes);
         Utils.print("Fields: " + fields);
-        Utils.print("Methods: ");
+        Utils.print("Methods: " + methods.keySet());
         methods.forEach((m, summary) -> {
             Utils.print("\t" + m + ": ");
             summary.printAll();

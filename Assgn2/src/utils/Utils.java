@@ -9,4 +9,7 @@ public class Utils {
         if (debug)
             System.out.println(s);
     }
+
+    public static String ARRAY_CLASS = "DUMMY-ARRAY-CLASS";
+    public static String MAIN_METHOD = "main";
 }

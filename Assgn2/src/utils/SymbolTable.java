@@ -22,7 +22,6 @@ public class SymbolTable {
 
     public void copyFieldsMethods() {
         // Copy all fields, non-overridden methods from parent to child
-        // TODO: Copy methods
         while(true) {
             boolean changed = false;
             for(ClassInfo cinfo : classes.values()) {
@@ -30,6 +29,7 @@ public class SymbolTable {
                 if (pname != null) {
                     ClassInfo pinfo = classes.get(pname);
                     changed = changed || cinfo.addFields(pinfo.fields);
+                    changed = changed || cinfo.addMethods(pinfo.methods);
                 }
             }
 
@@ -40,6 +40,10 @@ public class SymbolTable {
 
     public ClassInfo getClassInfo(String cname) {
         return classes.get(cname);
+    }
+
+    public FunctionSummary getFuncSummary(String cname, String method_name) {
+        return getClassInfo(cname).getMethod(method_name);
     }
 
     public void printAll() {
