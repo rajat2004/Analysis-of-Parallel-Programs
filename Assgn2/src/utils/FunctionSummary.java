@@ -26,21 +26,16 @@ public class FunctionSummary {
         parameters_mp.put(param_name, new ValuesSet());
     }
 
-    // Used to check if var is not of primitive type
-    public boolean isVariablePresent(String var) {
-        return stack.isVarPresent(var);
-    }
-
     public boolean isFunctionParameter(String var_name) {
         return formal_params.contains(var_name);
     }
 
-    public ValuesSet getFormalParamValues(String var_name) {
-        return parameters_mp.get(var_name);
-    }
-
     public String getFormalParamName(int id) {
         return formal_params.get(id);
+    }
+
+    public ValuesSet getFormalParamValues(String var_name) {
+        return parameters_mp.get(var_name);
     }
 
     public ValuesSet getFormalParamValues(int id) {

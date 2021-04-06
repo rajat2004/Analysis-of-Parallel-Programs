@@ -38,9 +38,6 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
    // Implemented as [ref][field] = value
    private HeapMap heap_map = new HeapMap();
 
-   // Queue to store methods to be analysed
-   private LinkedList<WorklistItem> worklist = new LinkedList<>();
-
    String curr_class = null;
    String curr_method = null;
 
@@ -293,22 +290,6 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
       curr_method = (String) n.f2.accept(this, argu);
 
       print(curr_class + "::" + curr_method + " --- Return: " + type);
-
-//      if (!isMethodPresentInWorklist(curr_class, curr_method))
-//         return _ret;
-
-      boolean erased = false;
-      for(Iterator<WorklistItem> itr = worklist.iterator(); itr.hasNext(); ) {
-         WorklistItem item = itr.next();
-         if (item.isSame(curr_class, curr_method)) {
-            print("Removing " + curr_class + ":::" + curr_method + " from worklist");
-            itr.remove();
-            erased = true;
-            break;
-         }
-      }
-
-//      assert erased;
 
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
@@ -888,16 +869,15 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
       ValuesSet this_refs = getValuesForVar(var_name);
 
-      // Add methods to queue based on each possible ref type
-      updateMethodAndWorklist(this_refs, method_name, all_param_values_list);
+      // Update method info based on each ref's type
+      updateMethodSummaries(this_refs, method_name, all_param_values_list);
 
       is_message_send = false;
       return _ret;
    }
 
-   private void updateMethodAndWorklist(ValuesSet this_refs, String method_name, ArrayList<ValuesSet> all_param_values_list) {
-      print("Previous Worklist: " + worklist);
-      print("Updating Worklist: ");
+   private void updateMethodSummaries(ValuesSet this_refs, String method_name, ArrayList<ValuesSet> all_param_values_list) {
+      print("Updating Method Information :");
       print("This Refs: " + this_refs);
       print("Method: " + method_name);
       print("All param values: " + all_param_values_list);
@@ -927,24 +907,8 @@ public class AliasAnalyzer<R,A> extends GJDepthFirst<R,A> {
 
             updateMapsChanged(changed);
          }
-
-         if (!isMethodPresentInWorklist(type, method_name)) {
-            WorklistItem item = new WorklistItem(type, method_name);
-            print("Not present, Adding " + item);
-            worklist.add(item);
-         }
       }
 
-      print("New Worklist: " + worklist);
-   }
-
-   private boolean isMethodPresentInWorklist(String cname, String method_name) {
-      for(WorklistItem item : worklist) {
-         if (item.isSame(cname, method_name))
-            return true;
-      }
-
-      return false;
    }
 
    /**

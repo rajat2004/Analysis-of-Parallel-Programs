@@ -10,16 +10,6 @@ public class SymbolTable {
         classes.put(cname, new ClassInfo(cname, parent));
     }
 
-    public void addClassField(String cname, String field) {
-//        print("Class: " + cname + ", Adding field: " + field);
-        classes.get(cname).addField(field);
-    }
-
-    public void addLocalVariable(String cname, String method, String var) {
-        print("addLocalVariable: " + cname + "::" + method + " " + var);
-        classes.get(cname).getMethod(method).addLocalVar(var);
-    }
-
     public void copyFieldsMethods() {
         // Copy all fields, non-overridden methods from parent to child
         while(true) {
@@ -40,10 +30,6 @@ public class SymbolTable {
 
     public ClassInfo getClassInfo(String cname) {
         return classes.get(cname);
-    }
-
-    public FunctionSummary getFuncSummary(String cname, String method_name) {
-        return getClassInfo(cname).getMethod(method_name);
     }
 
     public void printAll() {

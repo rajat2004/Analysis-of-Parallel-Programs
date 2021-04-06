@@ -6,7 +6,6 @@ import java.util.HashSet;
 public class ClassInfo {
     String name;
     String parent_class;
-//    HashSet<String> child_classes = new HashSet<>();
     public HashSet<String> fields = new HashSet<>();
     HashMap<String, FunctionSummary> methods = new HashMap<>();
 
@@ -31,11 +30,6 @@ public class ClassInfo {
         return fields.contains(var_name);
     }
 
-    public HashSet<String> getAllFields() {
-        // Fields have already been copied from the parent class in SymbolTable::copyfieldsMethods
-        return fields;
-    }
-
     public void createMethod(String method_name) {
         print("createMethod: " + method_name);
         methods.put(method_name, new FunctionSummary(method_name));
@@ -58,7 +52,6 @@ public class ClassInfo {
     public void printAll() {
         Utils.print("Class " + name);
         Utils.print("Parent: " + parent_class);
-//        Utils.print("Child classes: " + child_classes);
         Utils.print("Fields: " + fields);
         Utils.print("Methods: " + methods.keySet());
         methods.forEach((m, summary) -> {

@@ -252,10 +252,8 @@ public class SymbolTableGenerator<R,A> extends GJDepthFirst<R,A> {
 
         if (type!=null) {
             if (is_class_field_declaration)
-//                st.addClassField(curr_class, var);
                 getCurrClassInfo().addField(var);
             else
-//                st.addLocalVariable(curr_class, curr_method, var);
                 getCurrFuncSummary().addLocalVar(var);
         }
         return _ret;
