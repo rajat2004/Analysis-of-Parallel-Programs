@@ -1,13 +1,20 @@
 import syntaxtree.*;
+import utils.Utils;
 import visitor.*;
 
 public class Main {
     public static void main(String[] args) {
         try {
             Node root = new QParJavaParser(System.in).Goal();
-            System.out.println("Parsed successfully.");
+            print("Parsed successfully.");
 
-            PEGConstructor peg_constructor = new PEGConstructor();
+            SymbolTableGenerator st_gen = new SymbolTableGenerator();
+            for(int i=0; i<st_gen.n_iterations; i++) {
+                print("SymbolTableGen: Iteration " + (i+1));
+                root.accept(st_gen, null);
+            }
+
+            PEGConstructor peg_constructor = new PEGConstructor(st_gen.st);
             root.accept(peg_constructor, null);
 
             MHPAnalyzer mhp_analyzer = new MHPAnalyzer();
@@ -17,5 +24,9 @@ public class Main {
         } catch (ParseException e) {
             System.out.println(e.toString());
         }
+    }
+
+    private static void print(String s) {
+        Utils.print("\n\n\n" + s);
     }
 }
