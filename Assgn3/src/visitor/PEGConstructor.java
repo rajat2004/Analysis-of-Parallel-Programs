@@ -31,6 +31,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     private String curr_class = null;
     private String curr_thread = null;
     private String curr_label = null;
+    private String sync_obj = null;
+    private boolean is_sync = false;
 
     // Fields set in constructor
     SymbolTable st;
@@ -49,28 +51,24 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         });
     }
 
-    private PEGNode createNode(String obj, PEGNodeType type, String thread_id) {
+    private PEGNode createNode(String obj, PEGNodeType type) {
         global_node_id++;
-        assert thread_id == curr_thread;
-        PEGNode node = new PEGNode(obj, type, thread_id, global_node_id);
+        // Node can only be created for the current thread and current label
+        PEGNode node = new PEGNode(obj, type, curr_thread, global_node_id, curr_label);
+
+        node.is_synchronized = is_sync;
+        node.sync_obj = sync_obj;
+
         print("Created new node: " + node);
+        // Reset label so that no one can use it again
+        // TODO: Confirm that a label only applies to one node!!!
+        curr_label = null;
         return node;
     }
 
-    private PEGNode createNode(String obj, PEGNodeType type, String thread_id, String label) {
-        PEGNode node = createNode(obj, type, thread_id);
-        node.label = label;
-        print("Created node with label: " + node);
-        return node;
-    }
-
-    private PEGNode createNormalNode() {
-        return createNode("this", PEGNodeType.NORMAL, curr_thread);
-    }
-
-    private PEGNode createNormalNode(String label) {
-        return createNode("this", PEGNodeType.NORMAL, curr_thread, label);
-    }
+//    private PEGNode createNormalNode() {
+//        return createNode("*", PEGNodeType.NORMAL);
+//    }
 
     //
     // Auto class visitors--probably don't need to be overridden.
@@ -136,6 +134,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
 
+        peg.printAll();
+
         next_iteration = false;
 
         current_threads.forEach((class_name, thread_iter) -> {
@@ -161,6 +161,26 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
             print("No more threads remaining for class: " + curr_class);
             return false;
         }
+    }
+
+    private PEGNode createAddNodeToPEG(String obj, PEGNodeType type) {
+        PEGNode node = createNode(obj, type);
+        peg.addNodeToThread(curr_thread, node);
+        return node;
+    }
+
+    private void startThreadCFG() {
+        print("Starting CFG for thread: " + curr_thread);
+        createAddNodeToPEG("*", PEGNodeType.THREAD_BEGIN);
+    }
+
+    private void endThreadCFG() {
+        createAddNodeToPEG("*", PEGNodeType.THREAD_END);
+        print("Completed CFG of thread: " + curr_thread + "\n\n");
+
+        curr_thread = null;
+        curr_class = null;
+        curr_label = null;
     }
 
     /**
@@ -204,6 +224,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
             return _ret;
         }
 
+        startThreadCFG();
+
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
@@ -230,6 +252,9 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f25.accept(this, argu);
         n.f26.accept(this, argu);
         n.f27.accept(this, argu);
+
+        endThreadCFG();
+
         return _ret;
     }
 
@@ -325,6 +350,9 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(MethodDeclaration n, A argu) {
         R _ret=null;
+
+        startThreadCFG();
+
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
@@ -344,6 +372,9 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f16.accept(this, argu);
         n.f17.accept(this, argu);
         n.f18.accept(this, argu);
+
+        endThreadCFG();
+
         return _ret;
     }
 
@@ -453,9 +484,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
-        print("Assignment: " + left_var + " = ...");
-        createNormalNode(curr_label);
-        curr_label = null;
+        print("\nAssignment: " + left_var + " = ...");
+        createAddNodeToPEG("*", PEGNodeType.NORMAL);
         return _ret;
     }
 
@@ -475,9 +505,9 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f3.accept(this, argu);
         String right_var = n.f4.f0.tokenImage;
         n.f5.accept(this, argu);
-        print("FieldAssignmentStatement: " + left_obj + "." + field + " = " + right_var);
-        createNormalNode(curr_label);
-        curr_label = null;
+        print("\nFieldAssignmentStatement: " + left_obj + "." + field + " = " + right_var);
+
+        createAddNodeToPEG("*", PEGNodeType.NORMAL);
         return _ret;
     }
 
@@ -494,10 +524,19 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-        n.f2.accept(this, argu);
+//        n.f2.accept(this, argu);
+        String check_var = n.f2.f0.tokenImage;
+        // TODO: Set predecessors and successors properly
+        print("If condition: " + check_var);
+        createAddNodeToPEG("*", PEGNodeType.IF);
+
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("Else condition for " + check_var);
+        createAddNodeToPEG("*", PEGNodeType.ELSE);
+
         n.f6.accept(this, argu);
         return _ret;
     }
@@ -513,7 +552,10 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-        n.f2.accept(this, argu);
+//        n.f2.accept(this, argu);
+        String check_var = n.f2.f0.tokenImage;
+        print("While: " + check_var);
+        createAddNodeToPEG("*", PEGNodeType.WHILE);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         return _ret;
@@ -530,9 +572,26 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-        n.f2.accept(this, argu);
+//        n.f2.accept(this, argu);
+        String obj_name = n.f2.f0.tokenImage;
         n.f3.accept(this, argu);
+
+        print("Synchronized Entry: " + obj_name);
+        createAddNodeToPEG(obj_name, PEGNodeType.SYNC_ENTRY);
+
+        // sync entry node isn't synchronized
+        is_sync = true;
+        sync_obj = obj_name;
+
         n.f4.accept(this, argu);
+
+        print("Synchronized Exit: " + obj_name);
+        createAddNodeToPEG(obj_name, PEGNodeType.SYNC_EXIT);
+
+        // sync exit is synchronized
+        is_sync = false;
+        sync_obj = null;
+
         return _ret;
     }
 
@@ -550,6 +609,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
+        print("Print statement");
+        createAddNodeToPEG("*", PEGNodeType.NORMAL);
         return _ret;
     }
 
@@ -669,12 +730,16 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(callStartMethod n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        String thread_id = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("Starting thread: " + thread_id);
+        createAddNodeToPEG(thread_id, PEGNodeType.THREAD_START);
         return _ret;
     }
 
@@ -688,12 +753,16 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(callNotifyMethod n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        String obj_name = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("Notify: " + obj_name);
+        createAddNodeToPEG(obj_name, PEGNodeType.NOTIFY);
         return _ret;
     }
 
@@ -707,12 +776,16 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(callNotifyAllMethod n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        String obj_name = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("NotifyAll: " + obj_name);
+        createAddNodeToPEG(obj_name, PEGNodeType.NOTIFY_ALL);
         return _ret;
     }
 
@@ -726,12 +799,26 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(callWaitMethod n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        String obj_name = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("Wait: " + obj_name);
+        // TODO: Construct this properly!!
+        PEGNode wait_node = createAddNodeToPEG(obj_name, PEGNodeType.WAIT);
+
+        PEGNode waiting_node = createAddNodeToPEG(obj_name, PEGNodeType.WAITING);
+        waiting_node.is_synchronized = false;
+        waiting_node.sync_obj = null;
+
+        PEGNode notified_entry_node = createAddNodeToPEG(obj_name, PEGNodeType.NOTIFIED_ENTRY);
+        notified_entry_node.is_synchronized = false;
+        notified_entry_node.sync_obj = null;
+
         return _ret;
     }
 
@@ -745,12 +832,16 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(callJoinMethod n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        String thread_id = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
         n.f5.accept(this, argu);
+
+        print("Joining thread: " + thread_id);
+        createAddNodeToPEG(thread_id, PEGNodeType.THREAD_JOIN);
         return _ret;
     }
 
