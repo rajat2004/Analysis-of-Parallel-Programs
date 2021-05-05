@@ -15,7 +15,12 @@ public class Main {
             }
 
             PEGConstructor peg_constructor = new PEGConstructor(st_gen.st);
-            root.accept(peg_constructor, null);
+            int peg_const_iter = 0;
+            while (peg_constructor.next_iteration) {
+                print("PEGConstructor: Iteration " + peg_const_iter);
+                peg_const_iter++;
+                root.accept(peg_constructor, null);
+            }
 
             MHPAnalyzer mhp_analyzer = new MHPAnalyzer();
             root.accept(mhp_analyzer, null);

@@ -4,6 +4,8 @@
 
 package visitor;
 import syntaxtree.*;
+import utils.PEGNode;
+import utils.PEGNodeType;
 import utils.ParallelExecutionGraph;
 import utils.SymbolTable;
 
@@ -22,6 +24,13 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     }
 
     public ParallelExecutionGraph peg = new ParallelExecutionGraph();
+    public boolean next_iteration = true;
+
+    private static int global_node_id = 0;
+    private HashMap<String, Iterator<String>> current_threads = new HashMap<>();
+    private String curr_class = null;
+    private String curr_thread = null;
+    private String curr_label = null;
 
     // Fields set in constructor
     SymbolTable st;
@@ -29,6 +38,38 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     public PEGConstructor(SymbolTable st) {
         super();
         this.st = st;
+
+        print("Populating PEG with each thread");
+        st.thread_objects.forEach((class_name, threads) -> {
+            threads.forEach(thread_id -> {
+                peg.addThreadObject(thread_id, class_name);
+            });
+
+            current_threads.put(class_name, threads.iterator());
+        });
+    }
+
+    private PEGNode createNode(String obj, PEGNodeType type, String thread_id) {
+        global_node_id++;
+        assert thread_id == curr_thread;
+        PEGNode node = new PEGNode(obj, type, thread_id, global_node_id);
+        print("Created new node: " + node);
+        return node;
+    }
+
+    private PEGNode createNode(String obj, PEGNodeType type, String thread_id, String label) {
+        PEGNode node = createNode(obj, type, thread_id);
+        node.label = label;
+        print("Created node with label: " + node);
+        return node;
+    }
+
+    private PEGNode createNormalNode() {
+        return createNode("this", PEGNodeType.NORMAL, curr_thread);
+    }
+
+    private PEGNode createNormalNode(String label) {
+        return createNode("this", PEGNodeType.NORMAL, curr_thread, label);
     }
 
     //
@@ -89,12 +130,37 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(Goal n, A argu) {
         R _ret=null;
+
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
 
+        next_iteration = false;
+
+        current_threads.forEach((class_name, thread_iter) -> {
+            if (thread_iter.hasNext()) {
+                print("Next iteration required for class: " + class_name);
+                next_iteration = true;
+            }
+        });
+
+        if (!next_iteration)
+            print("Completed PEG construction!!!");
+
         return _ret;
+    }
+
+    private boolean updateCurrentThread() {
+        if (current_threads.get(curr_class).hasNext()) {
+            curr_thread = current_threads.get(curr_class).next();
+            print("New current thread: " + curr_thread);
+            return true;
+        }
+        else {
+            print("No more threads remaining for class: " + curr_class);
+            return false;
+        }
     }
 
     /**
@@ -130,7 +196,14 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     public R visit(MainClass n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        curr_class = n.f1.f0.tokenImage;
+        print("Starting main class: " + curr_class);
+
+        if (!updateCurrentThread()) {
+            // No need to analyze class which doesn't have any more threads
+            return _ret;
+        }
+
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
@@ -200,7 +273,13 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     public R visit(ClassExtendsDeclaration n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+        curr_class = n.f1.f0.tokenImage;
+        print("Starting class: " + curr_class);
+        if (!updateCurrentThread()) {
+            // No need to analyze class which doesn't have any more threads
+            return _ret;
+        }
+
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
@@ -327,7 +406,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(Label n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+//        n.f0.accept(this, argu);
+        curr_label = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         return _ret;
     }
@@ -369,10 +449,13 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(AssignmentStatement n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+        String left_var = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
+        print("Assignment: " + left_var + " = ...");
+        createNormalNode(curr_label);
+        curr_label = null;
         return _ret;
     }
 
@@ -386,12 +469,15 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(FieldAssignmentStatement n, A argu) {
         R _ret=null;
-        n.f0.accept(this, argu);
+        String left_obj = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
-        n.f2.accept(this, argu);
+        String field = n.f2.f0.tokenImage;
         n.f3.accept(this, argu);
-        n.f4.accept(this, argu);
+        String right_var = n.f4.f0.tokenImage;
         n.f5.accept(this, argu);
+        print("FieldAssignmentStatement: " + left_obj + "." + field + " = " + right_var);
+        createNormalNode(curr_label);
+        curr_label = null;
         return _ret;
     }
 
