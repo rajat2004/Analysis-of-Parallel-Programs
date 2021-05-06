@@ -1,6 +1,5 @@
 package utils;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 
 public class PEGNode {
@@ -11,7 +10,6 @@ public class PEGNode {
     public String label;
     public int unique_id;
 
-//    public boolean is_synchronized = false;
     public HashSet<String> sync_objs = new HashSet<>();
 
     public HashSet<PEGNode> local_predecessors = new HashSet<>();
@@ -45,6 +43,10 @@ public class PEGNode {
                 + ((label!=null) ? ", Label: " + label : "");
     }
 
+    public boolean isTypeNotify() {
+        return type == PEGNodeType.NOTIFY || type == PEGNodeType.NOTIFY_ALL;
+    }
+
     public void verifyNode() {
         assert thread_id != null;
 
@@ -61,6 +63,17 @@ public class PEGNode {
             assert local_successors.isEmpty();
         }
 
+        if (type == PEGNodeType.THREAD_START) {
+            // Cause I'm not a THREAD_BEGIN
+            assert start_predecessors.isEmpty();
+
+            for(PEGNode begin_node : start_successors) {
+                assert begin_node.type == PEGNodeType.THREAD_BEGIN;
+                assert begin_node.thread_id.equals(object_name);
+                assert begin_node.start_predecessors.contains(this);
+            }
+        }
+
         if (type != PEGNodeType.WAITING &&
             type != PEGNodeType.NOTIFIED_ENTRY &&
             type != PEGNodeType.NOTIFY &&
@@ -71,18 +84,37 @@ public class PEGNode {
             assert notify_successors.isEmpty();
         }
 
-        if (type == PEGNodeType.NOTIFIED_ENTRY) {
-            assert waiting_pred != null;
-            assert !sync_objs.contains(object_name);
+        if (type == PEGNodeType.WAIT) {
+            assert sync_objs.contains(object_name);
+            assert local_successors.size() == 1;
         }
 
         if (type == PEGNodeType.WAITING) {
             assert waiting_succ != null;
+            assert waiting_succ.type == PEGNodeType.NOTIFIED_ENTRY && waiting_succ.object_name.equals(object_name);
             assert !sync_objs.contains(object_name);
         }
 
+        if (type == PEGNodeType.NOTIFIED_ENTRY) {
+            assert waiting_pred != null;
+            assert waiting_pred.type == PEGNodeType.WAITING && waiting_pred.object_name.equals(object_name);
+            assert !sync_objs.contains(object_name);
+
+            for(PEGNode node : notify_predecessors) {
+                assert node.object_name.equals(object_name);
+                assert node.type == PEGNodeType.NOTIFY || node.type == PEGNodeType.NOTIFY_ALL;
+            }
+        }
+
+        if (isTypeNotify()) {
+            for(PEGNode node : notify_successors) {
+                assert node.object_name.equals(object_name);
+                assert node.type == PEGNodeType.NOTIFIED_ENTRY;
+            }
+        }
+
         if (type == PEGNodeType.SYNC_EXIT) {
-            assert !sync_objs.isEmpty();
+            assert sync_objs.contains(object_name);
         }
     }
 

@@ -59,10 +59,37 @@ public class MHPAnalyzer {
 
     private void runMHPAnalysis(PEGNode node) {
         Utils.print("\n");
-        // TODO: Compute NotifySucc
+
+        updateNotifySucc(node);
         updateMHPInfo(node);
         updateOUTInfo(node);
         ensureSymmetryOfMHPInfo(node);
+    }
+
+    private void updateNotifySucc(PEGNode node) {
+        if (node.isTypeNotify()) {
+            print("updateNotifySucc: " + node);
+            HashSet<PEGNode> new_notify_succ = getAllMatchingNodes(node.object_name,
+                    PEGNodeType.NOTIFIED_ENTRY);
+
+            new_notify_succ.removeIf(m -> !node.mhp_nodes.contains(m.waiting_pred));
+
+            boolean notify_succ_updated = node.notify_successors.addAll(new_notify_succ);
+            updateInfoChanged(notify_succ_updated);
+
+            if (notify_succ_updated)
+                print("New notify successors: " + node.notify_successors);
+        }
+    }
+
+    private HashSet<PEGNode> getAllMatchingNodes(String obj_name, PEGNodeType type) {
+        HashSet<PEGNode> matching_nodes = new HashSet<>();
+        peg.all_nodes.forEach((node_id, node) -> {
+            if (node.object_name.equals(obj_name) && node.type == type)
+                matching_nodes.add(node);
+        });
+
+        return matching_nodes;
     }
 
     private void ensureSymmetryOfMHPInfo(PEGNode node) {
@@ -74,18 +101,48 @@ public class MHPAnalyzer {
         }
     }
 
+    private HashSet<PEGNode> GenNotifyAll(PEGNode node) {
+        assert node.type == PEGNodeType.NOTIFIED_ENTRY;
+
+        HashSet<PEGNode> obj_notified_entry = getAllMatchingNodes(node.object_name, PEGNodeType.NOTIFIED_ENTRY);
+        // Note that condition is prefixed by "!" below
+        obj_notified_entry.removeIf(m ->
+           !m.waiting_pred.mhp_nodes.contains(node.waiting_pred)
+        );
+
+        HashSet<PEGNode> obj_notify_all = getAllMatchingNodes(node.object_name, PEGNodeType.NOTIFY_ALL);
+
+        HashSet<PEGNode> gen_notify_all = new HashSet<>();
+        for(PEGNode m : obj_notified_entry) {
+            for(PEGNode r : obj_notify_all) {
+                if (node.waiting_pred.mhp_nodes.contains(r)
+                    && m.waiting_pred.mhp_nodes.contains(r)) {
+                    gen_notify_all.add(m);
+                    break;
+                }
+            }
+        }
+
+        print("GenNotifyAll: " + gen_notify_all);
+        return gen_notify_all;
+    }
+
     private void updateMHPInfo(PEGNode node) {
-        print("updateMHPInfo: " + node + "\t\t Current MHP set: " + node.mhp_nodes);
-        HashSet<PEGNode> new_nodes = new HashSet<>();
+        print("updateMHPInfo: " + node + "\t\t Current MHP set: ");
+        node.mhp_nodes.forEach(m_node -> Utils.print("\t" + m_node));
+
+        HashSet<PEGNode> new_nodes;
         if (node.type == PEGNodeType.THREAD_BEGIN) {
-            new_nodes.addAll(getUnionOfOut(node.start_predecessors));
+            new_nodes = getUnionOfOUT(node.start_predecessors);
             new_nodes.removeAll(peg.getThreadInfo(node.thread_id).cfg);
         }
         else if (node.type == PEGNodeType.NOTIFIED_ENTRY) {
-            print("updateMHPInfo: Not implemented: " + node.type);
+            new_nodes = getUnionOfOUT(node.notify_predecessors);
+            new_nodes.retainAll(node.waiting_pred.out_nodes);
+            new_nodes.addAll(GenNotifyAll(node));
         }
         else {
-            new_nodes = getUnionOfOut(node.local_predecessors);
+            new_nodes = getUnionOfOUT(node.local_predecessors);
         }
 
         boolean mhp_nodes_updated = node.mhp_nodes.addAll(new_nodes);
@@ -126,7 +183,9 @@ public class MHPAnalyzer {
             String thread_id = node.object_name;
             gen_set.add(peg.getThreadInfo(thread_id).getThreadBeginNode());
         }
-        // TODO: Handle n belongsTo notifyNodes
+        else if (node.isTypeNotify()) {
+            gen_set.addAll(node.notify_successors);
+        }
         else {
             // Nothing
         }
@@ -138,11 +197,21 @@ public class MHPAnalyzer {
     private HashSet<PEGNode> getKILLSet(PEGNode node) {
         print("Getting KILL of " + node);
         HashSet<PEGNode> kill_set = new HashSet<>();
+
         if (node.type == PEGNodeType.THREAD_JOIN) {
             String thread_to_kill = node.object_name;
             kill_set.addAll(peg.getThreadInfo(thread_to_kill).cfg);
         }
-        // TODO: Handle notify, synchronized
+        else if (node.type == PEGNodeType.SYNC_ENTRY || node.type == PEGNodeType.NOTIFIED_ENTRY) {
+            kill_set.addAll(monitors.get(node.object_name));
+        }
+        else if (node.type == PEGNodeType.NOTIFY &&
+                waiting_nodes.get(node.object_name).size() == 1) {
+            kill_set.addAll(waiting_nodes.get(node.object_name));
+        }
+        else if (node.type == PEGNodeType.NOTIFY_ALL) {
+            kill_set.addAll(waiting_nodes.get(node.object_name));
+        }
         else {
             // Nothing
         }
@@ -151,7 +220,7 @@ public class MHPAnalyzer {
         return kill_set;
     }
 
-    private HashSet<PEGNode> getUnionOfOut(HashSet<PEGNode> nodes) {
+    private HashSet<PEGNode> getUnionOfOUT(HashSet<PEGNode> nodes) {
         print("Getting union of OUT of: " + nodes);
         HashSet<PEGNode> union_out = new HashSet<>();
         for(PEGNode node : nodes)
@@ -188,7 +257,7 @@ public class MHPAnalyzer {
     private void generateNotifyNodes() {
         print("\t\tGenerating notify nodes!");
         peg.all_nodes.forEach((node_id, node) -> {
-            if (node.type == PEGNodeType.NOTIFY || node.type == PEGNodeType.NOTIFY_ALL) {
+            if (node.isTypeNotify()) {
                 notify_nodes.putIfAbsent(node.object_name, new HashSet<>());
                 notify_nodes.get(node.object_name).add(node);
             }

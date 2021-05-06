@@ -7,6 +7,14 @@ import visitor.*;
 public class Main {
     public static void main(String[] args) {
         try {
+            boolean turn_off_all_debug = true;
+            if (turn_off_all_debug) {
+                Utils.debug = false;
+                SymbolTableGenerator.debug = false;
+                PEGConstructor.debug = false;
+                MHPQuery.debug = false;
+            }
+
             Node root = new QParJavaParser(System.in).Goal();
             print("Parsed successfully.");
 
@@ -28,10 +36,10 @@ public class Main {
             MHPAnalyzer mhp_analyzer = new MHPAnalyzer(peg);
             mhp_analyzer.run();
 
-            MHPQuery mhp_query = new MHPQuery();
+            print("Answering MHP Queries!");
+            MHPQuery mhp_query = new MHPQuery(peg);
             root.accept(mhp_query, null);
-            //GJDepthFirst v = new GJDepthFirst();
-            //root.accept(v, null);
+
         } catch (ParseException e) {
             System.out.println(e.toString());
         }

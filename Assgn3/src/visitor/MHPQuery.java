@@ -4,6 +4,9 @@
 
 package visitor;
 import syntaxtree.*;
+import utils.PEGNode;
+import utils.ParallelExecutionGraph;
+
 import java.util.*;
 
 /**
@@ -11,6 +14,19 @@ import java.util.*;
  * order.  Your visitors may extend this class.
  */
 public class MHPQuery<R,A> extends GJDepthFirst<R,A> {
+    public static boolean debug = true;
+
+    private void print(String s) {
+        if (debug)
+            System.out.println(this.getClass().getSimpleName() + ": " + s);
+    }
+
+    ParallelExecutionGraph peg;
+
+    public MHPQuery(ParallelExecutionGraph peg) {
+        this.peg = peg;
+    }
+
     //
     // Auto class visitors--probably don't need to be overridden.
     //
@@ -743,11 +759,44 @@ public class MHPQuery<R,A> extends GJDepthFirst<R,A> {
     public R visit(Query n, A argu) {
         R _ret=null;
         n.f0.accept(this, argu);
-        n.f1.accept(this, argu);
+//        n.f1.accept(this, argu);
+        String label1 = n.f1.f0.tokenImage;
         n.f2.accept(this, argu);
-        n.f3.accept(this, argu);
+//        n.f3.accept(this, argu);
+        String label2 = n.f3.f0.tokenImage;
         n.f4.accept(this, argu);
+
+        HashSet<PEGNode> l1_nodes = getNodesWithLabel(label1);
+        HashSet<PEGNode> l2_nodes = getNodesWithLabel(label2);
+
+        for(PEGNode l1_node : l1_nodes) {
+            for(PEGNode l2_node : l2_nodes) {
+                if (l1_node.mhp_nodes.contains(l2_node)) {
+                    print("Found MHP nodes: " + l1_node + " ------- " + l2_node);
+                    System.out.println("Yes");
+                    return _ret;
+                }
+            }
+        }
+
+        print("No MHP nodes found!");
+        System.out.println("No");
+
         return _ret;
+    }
+
+    private HashSet<PEGNode> getNodesWithLabel(String label) {
+        // TODO: Verify if there can be multiple nodes with same label, currently assuming yes
+        print("Label: " + label);
+
+        HashSet<PEGNode> label_nodes = new HashSet<>();
+        peg.all_nodes.forEach((node_id, node) -> {
+            if (node.label!=null && node.label.equals(label))
+                label_nodes.add(node);
+        });
+
+        print("Nodes: " + label_nodes);
+        return label_nodes;
     }
 
 }

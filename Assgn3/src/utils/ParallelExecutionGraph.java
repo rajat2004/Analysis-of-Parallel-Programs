@@ -4,8 +4,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 public class ParallelExecutionGraph {
-    HashMap<String, ThreadInfo> all_threads = new HashMap<>();
-    HashMap<Integer, PEGNode> all_nodes = new HashMap<>();
+    public HashMap<String, ThreadInfo> all_threads = new HashMap<>();
+    public HashMap<Integer, PEGNode> all_nodes = new HashMap<>();
 
     public ThreadInfo getThreadInfo(String thread_id) {
         return all_threads.get(thread_id);
@@ -45,7 +45,7 @@ public class ParallelExecutionGraph {
     public void verifyPEG() {
         print("Verifying PEG");
         all_threads.forEach((thread_id, thread_info) -> {
-            assert thread_info.name == thread_id;
+            assert thread_info.name.equals(thread_id);
             thread_info.verifyCFG();
         });
         print("PEG verification done!");
@@ -59,9 +59,7 @@ public class ParallelExecutionGraph {
         });
 
         print("AllNodes: \n\n\n");
-        all_nodes.forEach((node_id, node) -> {
-            Utils.print(node_id + " : " + node);
-        });
+        all_nodes.forEach((node_id, node) -> Utils.print(node_id + " : " + node));
     }
 
     private void print(String s) {
