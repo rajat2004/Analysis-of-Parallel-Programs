@@ -1,4 +1,5 @@
 import syntaxtree.*;
+import utils.ParallelExecutionGraph;
 import utils.Utils;
 import visitor.*;
 
@@ -21,6 +22,9 @@ public class Main {
                 peg_const_iter++;
                 root.accept(peg_constructor, null);
             }
+
+            ParallelExecutionGraph peg = peg_constructor.peg;
+
 
             MHPAnalyzer mhp_analyzer = new MHPAnalyzer();
             root.accept(mhp_analyzer, null);

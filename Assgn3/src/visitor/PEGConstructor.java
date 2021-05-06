@@ -31,8 +31,7 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
     private String curr_class = null;
     private String curr_thread = null;
     private String curr_label = null;
-    private String sync_obj = null;
-    private boolean is_sync = false;
+    private HashSet<String> sync_objs = new HashSet<>();
 
     // Fields set in constructor
     SymbolTable st;
@@ -56,8 +55,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         // Node can only be created for the current thread and current label
         PEGNode node = new PEGNode(obj, type, curr_thread, global_node_id, curr_label);
 
-        node.is_synchronized = is_sync;
-        node.sync_obj = sync_obj;
+        // No direct assign, copy each String individually
+        node.sync_objs.addAll(sync_objs);
 
         print("Created new node: " + node);
         // Reset label so that no one can use it again
@@ -65,10 +64,6 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         curr_label = null;
         return node;
     }
-
-//    private PEGNode createNormalNode() {
-//        return createNode("*", PEGNodeType.NORMAL);
-//    }
 
     //
     // Auto class visitors--probably don't need to be overridden.
@@ -134,8 +129,6 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f2.accept(this, argu);
         n.f3.accept(this, argu);
 
-        peg.printAll();
-
         next_iteration = false;
 
         current_threads.forEach((class_name, thread_iter) -> {
@@ -145,8 +138,14 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
             }
         });
 
-        if (!next_iteration)
+        if (!next_iteration) {
             print("Completed PEG construction!!!");
+            print("Now starting PEG initial nodes addition!");
+            peg.createInitialEdges();
+            peg.verifyPEG();
+        }
+
+        peg.printAll();
 
         return _ret;
     }
@@ -437,7 +436,6 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
      */
     public R visit(Label n, A argu) {
         R _ret=null;
-//        n.f0.accept(this, argu);
         curr_label = n.f0.f0.tokenImage;
         n.f1.accept(this, argu);
         return _ret;
@@ -526,7 +524,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
 //        n.f2.accept(this, argu);
         String check_var = n.f2.f0.tokenImage;
-        // TODO: Set predecessors and successors properly
+        // TODO: Set predecessors and successors properly!!
+        // Maybe create a IF, ELSE end node?
         print("If condition: " + check_var);
         createAddNodeToPEG("*", PEGNodeType.IF);
 
@@ -552,7 +551,8 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-//        n.f2.accept(this, argu);
+        // TODO: Handle successors of While correctly!
+        // Maybe a WHILE_END node?
         String check_var = n.f2.f0.tokenImage;
         print("While: " + check_var);
         createAddNodeToPEG("*", PEGNodeType.WHILE);
@@ -572,7 +572,6 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-//        n.f2.accept(this, argu);
         String obj_name = n.f2.f0.tokenImage;
         n.f3.accept(this, argu);
 
@@ -580,8 +579,7 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         createAddNodeToPEG(obj_name, PEGNodeType.SYNC_ENTRY);
 
         // sync entry node isn't synchronized
-        is_sync = true;
-        sync_obj = obj_name;
+        sync_objs.add(obj_name);
 
         n.f4.accept(this, argu);
 
@@ -589,8 +587,7 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         createAddNodeToPEG(obj_name, PEGNodeType.SYNC_EXIT);
 
         // sync exit is synchronized
-        is_sync = false;
-        sync_obj = null;
+        sync_objs.remove(obj_name);
 
         return _ret;
     }
@@ -808,16 +805,14 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f5.accept(this, argu);
 
         print("Wait: " + obj_name);
-        // TODO: Construct this properly!!
+        // TODO: Check if label has to be applied on WAIT or WAITING
         PEGNode wait_node = createAddNodeToPEG(obj_name, PEGNodeType.WAIT);
 
         PEGNode waiting_node = createAddNodeToPEG(obj_name, PEGNodeType.WAITING);
-        waiting_node.is_synchronized = false;
-        waiting_node.sync_obj = null;
+        waiting_node.sync_objs.remove(obj_name);
 
         PEGNode notified_entry_node = createAddNodeToPEG(obj_name, PEGNodeType.NOTIFIED_ENTRY);
-        notified_entry_node.is_synchronized = false;
-        notified_entry_node.sync_obj = null;
+        notified_entry_node.sync_objs.remove(obj_name);
 
         return _ret;
     }
