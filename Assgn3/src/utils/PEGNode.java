@@ -26,6 +26,9 @@ public class PEGNode {
     public PEGNode waiting_pred = null;
     public PEGNode waiting_succ = null;
 
+    public HashSet<PEGNode> mhp_nodes = new HashSet<>();
+    public HashSet<PEGNode> out_nodes = new HashSet<>();
+
     public PEGNode(String obj, PEGNodeType type, String thread_id, int unique_id, String label) {
         this.object_name = obj;
         this.type = type;
@@ -49,7 +52,7 @@ public class PEGNode {
             assert local_predecessors.isEmpty();
             for (PEGNode start_node : start_predecessors) {
                 assert start_node.type == PEGNodeType.THREAD_START;
-                assert start_node.object_name == thread_id;
+                assert start_node.object_name.equals(thread_id);
                 assert start_node.start_successors.contains(this);
             }
         }

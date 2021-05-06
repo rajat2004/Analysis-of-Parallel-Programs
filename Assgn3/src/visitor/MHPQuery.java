@@ -10,7 +10,7 @@ import java.util.*;
  * Provides default methods which visit each node in the tree in depth-first
  * order.  Your visitors may extend this class.
  */
-public class MHPAnalyzer<R,A> extends GJDepthFirst<R,A> {
+public class MHPQuery<R,A> extends GJDepthFirst<R,A> {
     //
     // Auto class visitors--probably don't need to be overridden.
     //

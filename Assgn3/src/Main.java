@@ -1,4 +1,5 @@
 import syntaxtree.*;
+import utils.MHPAnalyzer;
 import utils.ParallelExecutionGraph;
 import utils.Utils;
 import visitor.*;
@@ -24,10 +25,11 @@ public class Main {
             }
 
             ParallelExecutionGraph peg = peg_constructor.peg;
+            MHPAnalyzer mhp_analyzer = new MHPAnalyzer(peg);
+            mhp_analyzer.run();
 
-
-            MHPAnalyzer mhp_analyzer = new MHPAnalyzer();
-            root.accept(mhp_analyzer, null);
+            MHPQuery mhp_query = new MHPQuery();
+            root.accept(mhp_query, null);
             //GJDepthFirst v = new GJDepthFirst();
             //root.accept(v, null);
         } catch (ParseException e) {

@@ -85,7 +85,7 @@ public class ThreadInfo {
         assert getThreadEndNode().type == PEGNodeType.THREAD_END;
 
         for(PEGNode node : cfg) {
-            assert node.thread_id == name;
+            assert node.thread_id.equals(name);
             node.verifyNode();
         }
 
