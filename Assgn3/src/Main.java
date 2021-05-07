@@ -7,7 +7,7 @@ import visitor.*;
 public class Main {
     public static void main(String[] args) {
         try {
-            boolean turn_off_all_debug = false;
+            boolean turn_off_all_debug = true;
             if (turn_off_all_debug) {
                 Utils.debug = false;
                 SymbolTableGenerator.debug = false;
