@@ -18,11 +18,14 @@ public class ThreadInfo {
         Utils.print("Thread: " + name + " - Adding node: " + node);
         updatePredecessorNodes(node);
         updateSuccessorNodesOfPrevNodes(node);
+        // Has to be done at the end
         cfg.add(node);
     }
 
     public void updatePredecessorNodes(PEGNode new_node) {
-        if (new_node.type == PEGNodeType.THREAD_BEGIN) {
+        if (new_node.type == PEGNodeType.THREAD_BEGIN
+            || new_node.type == PEGNodeType.WHILE_END
+            || new_node.type == PEGNodeType.ELSE) {
             print("Node: " + new_node.type + ", no predecessor to be added");
             return;
         }

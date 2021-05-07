@@ -50,6 +50,17 @@ public class PEGNode {
     public void verifyNode() {
         assert thread_id != null;
 
+        if (type != PEGNodeType.THREAD_BEGIN && type != PEGNodeType.THREAD_END) {
+            // Should be symmetric
+            for (PEGNode local_pred : local_predecessors) {
+                assert local_pred.local_successors.contains(this);
+            }
+
+            for (PEGNode local_succ : local_successors) {
+                assert local_succ.local_predecessors.contains(this);
+            }
+        }
+
         if (type == PEGNodeType.THREAD_BEGIN) {
             assert local_predecessors.isEmpty();
             for (PEGNode start_node : start_predecessors) {
@@ -91,7 +102,8 @@ public class PEGNode {
 
         if (type == PEGNodeType.WAITING) {
             assert waiting_succ != null;
-            assert waiting_succ.type == PEGNodeType.NOTIFIED_ENTRY && waiting_succ.object_name.equals(object_name);
+            assert waiting_succ.type == PEGNodeType.NOTIFIED_ENTRY;
+            assert waiting_succ.object_name.equals(object_name);
             assert !sync_objs.contains(object_name);
         }
 
@@ -102,7 +114,7 @@ public class PEGNode {
 
             for(PEGNode node : notify_predecessors) {
                 assert node.object_name.equals(object_name);
-                assert node.type == PEGNodeType.NOTIFY || node.type == PEGNodeType.NOTIFY_ALL;
+                assert node.isTypeNotify();
             }
         }
 
@@ -115,6 +127,44 @@ public class PEGNode {
 
         if (type == PEGNodeType.SYNC_EXIT) {
             assert sync_objs.contains(object_name);
+        }
+
+        if (type == PEGNodeType.ELSE) {
+            boolean if_node_present = false;
+
+            for (PEGNode node : local_predecessors) {
+                assert node.type != PEGNodeType.IF_END;
+                if_node_present |= node.type == PEGNodeType.IF;
+            }
+
+            assert if_node_present;
+        }
+
+        if (type == PEGNodeType.IF_END) {
+            boolean if_else_end_present = false;
+
+            for (PEGNode node : local_successors) {
+                if_else_end_present |= node.type == PEGNodeType.IF_ELSE_END;
+            }
+
+            assert if_else_end_present;
+        }
+
+        if (type == PEGNodeType.WHILE_JUMP) {
+            boolean while_present = false;
+
+            for (PEGNode node : local_successors) {
+                assert node.type != PEGNodeType.WHILE_END;
+                while_present |= node.type == PEGNodeType.WHILE;
+            }
+
+            assert while_present;
+        }
+
+
+        // Symmetry check
+        for (PEGNode node : mhp_nodes) {
+            assert node.mhp_nodes.contains(this);
         }
     }
 

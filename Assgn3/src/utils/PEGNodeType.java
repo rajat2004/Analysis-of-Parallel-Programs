@@ -14,7 +14,12 @@ public enum PEGNodeType {
     NOTIFY_ALL,
     NOTIFY,
 
+    // Custom-defined nodes
     WHILE,
+    WHILE_JUMP,
+    WHILE_END,
     IF,
+    IF_END,
     ELSE,
+    IF_ELSE_END,
 }

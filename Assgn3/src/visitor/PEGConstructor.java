@@ -524,19 +524,36 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f1.accept(this, argu);
 //        n.f2.accept(this, argu);
         String check_var = n.f2.f0.tokenImage;
-        // TODO: Set predecessors and successors properly!!
-        // Maybe create a IF, ELSE end node?
+
         print("If condition: " + check_var);
-        createAddNodeToPEG("*", PEGNodeType.IF);
+        PEGNode if_node = createAddNodeToPEG("*", PEGNodeType.IF);
 
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
+
+        PEGNode if_end_node = createAddNodeToPEG("*", PEGNodeType.IF_END);
+
         n.f5.accept(this, argu);
 
         print("Else condition for " + check_var);
-        createAddNodeToPEG("*", PEGNodeType.ELSE);
+        PEGNode else_node = createAddNodeToPEG("*", PEGNodeType.ELSE);
 
         n.f6.accept(this, argu);
+
+        PEGNode if_else_end_node = createAddNodeToPEG("*", PEGNodeType.IF_ELSE_END);
+        print("Added if-else-end node: " + if_else_end_node);
+
+        // If -> if block
+        //       else block
+        if_node.local_successors.add(else_node);
+        else_node.local_predecessors.add(if_node);
+
+        // End of if block -> next after else block
+        if_end_node.local_successors.add(if_else_end_node);
+        if_else_end_node.local_predecessors.add(if_end_node);
+
+        // Removal of if_end -> else is handled in ThreadInfo
+
         return _ret;
     }
 
@@ -551,13 +568,26 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         R _ret=null;
         n.f0.accept(this, argu);
         n.f1.accept(this, argu);
-        // TODO: Handle successors of While correctly!
-        // Maybe a WHILE_END node?
+
         String check_var = n.f2.f0.tokenImage;
         print("While: " + check_var);
-        createAddNodeToPEG("*", PEGNodeType.WHILE);
+        PEGNode while_node = createAddNodeToPEG("*", PEGNodeType.WHILE);
         n.f3.accept(this, argu);
         n.f4.accept(this, argu);
+
+        PEGNode while_jump_node = createAddNodeToPEG("*", PEGNodeType.WHILE_JUMP);
+        PEGNode while_end_node = createAddNodeToPEG("*", PEGNodeType.WHILE_END);
+
+        // While -> While block
+        //       -> After while block
+        while_node.local_successors.add(while_end_node);
+        while_end_node.local_predecessors.add(while_node);
+
+        while_jump_node.local_successors.add(while_node);
+        while_node.local_predecessors.add(while_jump_node);
+
+        // No connection between While_jump and While_end is handled in ThreadInfo
+
         return _ret;
     }
 
@@ -805,8 +835,16 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
         n.f5.accept(this, argu);
 
         print("Wait: " + obj_name);
-        // TODO: Check if label has to be applied on WAIT or WAITING
+        // TODO: Check if label has to be applied on WAIT or WAITING, currently assuming WAIT
+
+        // IF waiting node has label
+//        String label = curr_label;
+//        curr_label = null;
+
         PEGNode wait_node = createAddNodeToPEG(obj_name, PEGNodeType.WAIT);
+
+        // Restore label for Waiting node
+//        curr_label = label;
 
         PEGNode waiting_node = createAddNodeToPEG(obj_name, PEGNodeType.WAITING);
         waiting_node.sync_objs.remove(obj_name);

@@ -8,7 +8,6 @@ public class MHPAnalyzer {
     boolean global_updated = true;
 
     HashMap<String, HashSet<PEGNode>> monitors = new HashMap<>();
-    HashMap<String, HashSet<PEGNode>> notify_nodes = new HashMap<>();
     HashMap<String, HashSet<PEGNode>> waiting_nodes = new HashMap<>();
 
     public MHPAnalyzer(ParallelExecutionGraph peg) {
@@ -231,7 +230,6 @@ public class MHPAnalyzer {
 
     private void initialSetup() {
         generateMonitors();
-        generateNotifyNodes();
         generateWaitingNodes();
     }
 
@@ -251,22 +249,6 @@ public class MHPAnalyzer {
             Utils.print("\nObj: " + obj_name);
             for(PEGNode node : nodes)
                 Utils.print("\t" + node.toString() + ", " + node.sync_objs);
-        });
-    }
-
-    private void generateNotifyNodes() {
-        print("\t\tGenerating notify nodes!");
-        peg.all_nodes.forEach((node_id, node) -> {
-            if (node.isTypeNotify()) {
-                notify_nodes.putIfAbsent(node.object_name, new HashSet<>());
-                notify_nodes.get(node.object_name).add(node);
-            }
-        });
-
-        Utils.print("\n\nNotifyNodes:");
-        notify_nodes.forEach((obj_name, nodes) -> {
-            Utils.print("\nObj: " + obj_name);
-            Utils.print(nodes.toString());
         });
     }
 
