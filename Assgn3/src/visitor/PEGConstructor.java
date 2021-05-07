@@ -140,9 +140,11 @@ public class PEGConstructor<R,A> extends GJDepthFirst<R,A> {
 
         if (!next_iteration) {
             print("Completed PEG construction!!!");
-            print("Now starting PEG initial nodes addition!");
-            peg.createInitialEdges();
-            peg.verifyPEG();
+//            print("Now starting PEG initial nodes addition!");
+
+//            peg.createInitialEdges();
+//            peg.verifyPEG();
+            peg.postCompletion();
         }
 
         peg.printAll();

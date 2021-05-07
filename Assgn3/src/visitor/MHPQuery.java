@@ -6,6 +6,7 @@ package visitor;
 import syntaxtree.*;
 import utils.PEGNode;
 import utils.ParallelExecutionGraph;
+import utils.Utils;
 
 import java.util.*;
 
@@ -43,10 +44,14 @@ public class MHPQuery<R,A> extends GJDepthFirst<R,A> {
         String label2 = n.f3.f0.tokenImage;
         n.f4.accept(this, argu);
 
+        Utils.print("\n");
+
         HashSet<PEGNode> l1_nodes = getNodesWithLabel(label1);
         HashSet<PEGNode> l2_nodes = getNodesWithLabel(label2);
 
         for(PEGNode l1_node : l1_nodes) {
+            print("L1 Node: " + l1_node + ", MHP nodes: ");
+            l1_node.mhp_nodes.forEach(node -> Utils.print("\t" + node));
             for(PEGNode l2_node : l2_nodes) {
                 if (l1_node.mhp_nodes.contains(l2_node)) {
                     print("Found MHP nodes: " + l1_node + " ------- " + l2_node);
@@ -67,7 +72,7 @@ public class MHPQuery<R,A> extends GJDepthFirst<R,A> {
         print("Label: " + label);
 
         HashSet<PEGNode> label_nodes = new HashSet<>();
-        peg.all_nodes.forEach((node_id, node) -> {
+        peg.all_nodes.forEach(node -> {
             if (node.label!=null && node.label.equals(label))
                 label_nodes.add(node);
         });

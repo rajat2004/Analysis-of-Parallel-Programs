@@ -98,6 +98,11 @@ public class PEGNode {
         if (type == PEGNodeType.WAIT) {
             assert sync_objs.contains(object_name);
             assert local_successors.size() == 1;
+
+            for (PEGNode node : local_successors) {
+                assert node.type == PEGNodeType.WAITING;
+                assert node.object_name.equals(object_name);
+            }
         }
 
         if (type == PEGNodeType.WAITING) {
@@ -105,12 +110,17 @@ public class PEGNode {
             assert waiting_succ.type == PEGNodeType.NOTIFIED_ENTRY;
             assert waiting_succ.object_name.equals(object_name);
             assert !sync_objs.contains(object_name);
+
+            assert waiting_pred == null;
         }
 
         if (type == PEGNodeType.NOTIFIED_ENTRY) {
             assert waiting_pred != null;
-            assert waiting_pred.type == PEGNodeType.WAITING && waiting_pred.object_name.equals(object_name);
+            assert waiting_pred.type == PEGNodeType.WAITING;
+            assert waiting_pred.object_name.equals(object_name);
             assert !sync_objs.contains(object_name);
+
+            assert waiting_succ == null;
 
             for(PEGNode node : notify_predecessors) {
                 assert node.object_name.equals(object_name);
@@ -165,6 +175,11 @@ public class PEGNode {
         // Symmetry check
         for (PEGNode node : mhp_nodes) {
             assert node.mhp_nodes.contains(this);
+        }
+
+        for (PEGNode node : notify_successors) {
+            assert node.type == PEGNodeType.NOTIFIED_ENTRY;
+            assert node.notify_predecessors.contains(this);
         }
     }
 

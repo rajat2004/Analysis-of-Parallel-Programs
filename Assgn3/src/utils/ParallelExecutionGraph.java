@@ -5,7 +5,7 @@ import java.util.HashSet;
 
 public class ParallelExecutionGraph {
     public HashMap<String, ThreadInfo> all_threads = new HashMap<>();
-    public HashMap<Integer, PEGNode> all_nodes = new HashMap<>();
+    public HashSet<PEGNode> all_nodes = new HashSet<>();
 
     public ThreadInfo getThreadInfo(String thread_id) {
         return all_threads.get(thread_id);
@@ -18,14 +18,20 @@ public class ParallelExecutionGraph {
 
     public void addNodeToThread(String thread_id, PEGNode node) {
         all_threads.get(thread_id).addNode(node);
-        all_nodes.put(node.unique_id, node);
+        all_nodes.add(node);
     }
 
-    public void createInitialEdges() {
+    public void postCompletion() {
+        createInitialEdges();
+        removeUnusedThreads();
+        verifyPEG();
+    }
+
+    private void createInitialEdges() {
         createThreadStartEdges();
     }
 
-    public void createThreadStartEdges() {
+    private void createThreadStartEdges() {
         print("Adding thread start -> begin edges");
         all_threads.forEach((thread_id, thread_info) -> {
             HashSet<PEGNode> start_nodes = thread_info.getAllThreadStartNodes();
@@ -39,6 +45,23 @@ public class ParallelExecutionGraph {
                 start_node.start_successors.add(thread_begin_node);
                 thread_begin_node.start_predecessors.add(start_node);
             }
+        });
+    }
+
+    private void removeUnusedThreads() {
+        print("Removing threads which haven't been started");
+        all_threads.entrySet().removeIf(entry -> {
+            // Main will always be started
+            if (entry.getKey().equals("main"))
+                return false;
+
+            boolean thread_not_started = entry.getValue().getThreadBeginNode().start_predecessors.isEmpty();
+            if (thread_not_started) {
+                print("Not started thread: " + entry.getKey());
+                // Remove nodes from all_nodes also
+                all_nodes.removeAll(entry.getValue().cfg);
+            }
+            return thread_not_started;
         });
     }
 
@@ -59,7 +82,7 @@ public class ParallelExecutionGraph {
         });
 
         print("AllNodes: \n\n\n");
-        all_nodes.forEach((node_id, node) -> Utils.print(node_id + " : " + node));
+        all_nodes.forEach(node -> Utils.print(node.toString()));
     }
 
     private void print(String s) {
